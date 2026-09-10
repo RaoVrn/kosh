@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Item } from '@kosh/shared'
-import { getTodayGroups, sortPendingTasks } from '../src/utils/grouping'
-import { daysFromNow } from '../src/utils/time'
+import { getTodayGroups, sortPendingTasks } from '@kosh/shared'
+import { daysFromNow } from '@kosh/shared'
 
 const REF = new Date('2026-09-11T12:00:00.000Z')
 

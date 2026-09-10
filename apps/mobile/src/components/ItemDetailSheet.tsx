@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { ITEM_TYPES, PRIORITIES } from '@kosh/shared'
 import { colors, layout, radius, spacing, typeColors } from '../theme'
-import { priorityLabel, typeLabel } from '../utils/labels'
+import { priorityLabel, typeLabel } from '@kosh/shared'
 import {
   daysFromNow,
   formatDue,
@@ -21,8 +21,8 @@ import {
   isSameDay,
   isToday,
   isTomorrow,
-} from '../utils/time'
-import { useItems } from '../state/ItemsContext'
+} from '@kosh/shared'
+import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'

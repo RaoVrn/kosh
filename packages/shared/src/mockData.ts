@@ -1,5 +1,5 @@
-import type { Item } from '@kosh/shared'
-import { daysFromNow, isoFrom } from '../utils/time'
+import type { Item } from './index'
+import { daysFromNow, isoFrom } from './utils/time'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE

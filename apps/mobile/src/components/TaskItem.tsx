@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Item } from '@kosh/shared'
 import { colors, priorityColors, radius, spacing } from '../theme'
-import { priorityLabel } from '../utils/labels'
-import { formatDue, isOverdue } from '../utils/time'
+import { priorityLabel } from '@kosh/shared'
+import { formatDue, isOverdue } from '@kosh/shared'
 import { Badge } from './Badge'
 import { Icon } from './Icon'
 

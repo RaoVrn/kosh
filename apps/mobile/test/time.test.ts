@@ -8,7 +8,7 @@ import {
   isUpcoming,
   relativeTime,
   startOfDay,
-} from '../src/utils/time'
+} from '@kosh/shared'
 
 const REF = new Date(2026, 8, 11, 12, 0, 0)
 

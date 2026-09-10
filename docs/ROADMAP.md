@@ -48,7 +48,27 @@ Wire to the API:
 - [ ] Mobile: API client module replaces `src/data/mockItems.ts` behind the
       existing context boundary.
 
-## Phase 3 — Tasks and reminders
+## Phase 3 — Web client (desktop)
+
+Goal: Kosh also works in the browser on a laptop/desktop, sharing the same
+model and (eventually) the same backend as mobile.
+
+- [x] `apps/web`: Vite + React + TypeScript app on `http://localhost:3000`.
+- [x] Same 8 screens (Inbox, Today, Tasks, Notes, Ideas, Learning, Search,
+      Settings) reusing `@kosh/shared` types, tokens, utilities, mock data and
+      item state.
+- [x] Responsive: sidebar on desktop, compact top nav below 768px, capture
+      stays accessible.
+- [x] Capture, item detail dialog, client-side search, task completion
+      (local state).
+- [x] Interaction tests (render, capture, navigation, search, detail dialog).
+- [x] `packages/shared` consolidated: types, design tokens, pure utils, mock
+      data and `ItemsProvider` shared by both clients (single seam to swap for
+      the API).
+- [ ] Web client: wire to the API once `/api/v1/items` exists (replaces the
+      shared mock context on both clients).
+
+## Phase 4 — Tasks and reminders
 
 Goal: a capture can become a to-do with a due date and an in-app reminder.
 
@@ -58,31 +78,32 @@ Goal: a capture can become a to-do with a due date and an in-app reminder.
 - [ ] Mobile: task view (mark done, set due date).
 - [ ] Mobile: reminder picker (date/time) on a capture.
 - [ ] Mobile: local notification when app is open (in-app reminder).
-- [ ] API: push-token registration endpoint (stub — real push in Phase 6).
+- [ ] API: push-token registration endpoint (stub — real push in Phase 7).
 
-## Phase 4 — Notes, ideas, learning, links
+## Phase 5 — Notes, ideas, learning, links
 
 Goal: the four non-task capture types are first-class but still one inbox.
 
 - [ ] API: `url` field on items; link handling (store URL, extract title).
-- [~] Mobile: type badges and per-type filter tabs (All / Tasks / Notes /
-  Ideas / Learning / Links). _(badges + per-section screens exist; per-type
-  filter tabs inside a section are partial — Tasks screen has filters)_
-- [ ] Mobile: link capture shortcut (paste URL → prefilled item).
-- [ ] Mobile: longer-form note editing screen.
+- [~] Type badges and per-type filter tabs (All / Tasks / Notes /
+  Ideas / Learning / Links) on both clients. _(badges + per-section screens
+  exist; per-type filter tabs inside a section are partial — Tasks screen has
+  filters)_
+- [ ] Link capture shortcut (paste URL → prefilled item).
+- [ ] Longer-form note editing screen.
 - [ ] API: update classification on existing items (manual re-type).
 
-## Phase 5 — Search
+## Phase 6 — Search
 
 Goal: find anything you have ever captured.
 
 - [ ] API: FTS (SQLite FTS5) index over items; `GET /api/v1/items?q=…`.
 - [ ] API: filter by type/status + sort by created/updated/due.
-- [~] Mobile: search entry point in header; results screen with snippets.
-  _(entry point + client-side results exist; server search in this phase)_
-- [ ] Mobile: search from a share-sheet-style quick action (if cheap).
+- [~] Client search: entry point + client-side results on both clients.
+  _(client-side; server search lands in this phase)_
+- [ ] Search from a share-sheet-style quick action (if cheap).
 
-## Phase 6 — Voice capture and push
+## Phase 7 — Voice capture and push
 
 Goal: speak a capture; get real push reminders.
 
@@ -93,7 +114,7 @@ Goal: speak a capture; get real push reminders.
 - [ ] API: send push via Expo push service for fired reminders.
 - [ ] Mobile: register push token; handle push → open item.
 
-## Phase 7 — AI organization
+## Phase 8 — AI organization
 
 Goal: captures classify themselves.
 
@@ -102,15 +123,16 @@ Goal: captures classify themselves.
 - [ ] API: validation of LLM output against `@kosh/shared` types; fallback to
       inbox on failure.
 - [ ] API: batch re-classify of existing inbox items (manual trigger).
-- [ ] Mobile: show confidence / suggestion UI ("Looks like a task — confirm?").
+- [ ] Clients: show confidence / suggestion UI ("Looks like a task — confirm?").
 - [ ] API: natural-language parse ("remind me friday 9am …").
 
-## Phase 8 — Polish and deployment
+## Phase 9 — Polish and deployment
 
 Goal: a shippable personal tool.
 
-- [ ] Mobile: empty states, loading/error states, haptics, animations polish.
+- [ ] Empty states, loading/error states, haptics, animations polish.
 - [ ] Mobile: EAS build → TestFlight / store builds.
+- [ ] Web: build/preview + deploy alongside the API.
 - [ ] API: deploy on a single VPS (or cheap container host), process manager,
       on-disk SQLite, `cp`-based backups.
 - [ ] API: add simple token auth before any public exposure.
@@ -124,6 +146,5 @@ Goal: a shippable personal tool.
 - Share sheet / widget capture.
 - Offline-first capture queue with sync.
 - Recurring reminders.
-- Web / desktop interface.
 - Tags and custom views.
 - Attachments.

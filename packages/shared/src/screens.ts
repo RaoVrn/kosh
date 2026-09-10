@@ -1,0 +1,34 @@
+export const SCREEN_NAMES = [
+  'inbox',
+  'today',
+  'tasks',
+  'notes',
+  'ideas',
+  'learning',
+  'search',
+  'settings',
+] as const
+
+export type ScreenName = (typeof SCREEN_NAMES)[number]
+
+export type PrimarySection = Exclude<ScreenName, 'search' | 'settings'>
+
+export const PRIMARY_SECTIONS: readonly PrimarySection[] = [
+  'inbox',
+  'today',
+  'tasks',
+  'notes',
+  'ideas',
+  'learning',
+]
+
+export const SCREEN_TITLES: Record<ScreenName, string> = {
+  inbox: 'Inbox',
+  today: 'Today',
+  tasks: 'Tasks',
+  notes: 'Notes',
+  ideas: 'Ideas',
+  learning: 'Learning',
+  search: 'Search',
+  settings: 'Settings',
+}

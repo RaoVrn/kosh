@@ -149,6 +149,38 @@ whenever an important technical or product decision is made.
 - **Alternatives rejected:** A separate `apps/web` (duplicated UI for the same
   screens); a native macOS app (out of scope for MVP).
 
+### D13 — Web client: Vite + React + TypeScript
+
+- **Status:** Accepted (web client)
+- **Decision:** `apps/web` is a plain Vite + React + TypeScript single-page
+  app, served at `http://localhost:3000`. No framework, no router, no CSS
+  framework — a small `NavContext` + one `styles.css` that mirrors the shared
+  dark design tokens.
+- **Why:**
+  - Web-first desktop/laptop UI wants real DOM + CSS; Vite is the simplest
+    standard tooling for it.
+  - Reuses `@kosh/shared` (types, tokens, utilities, mock data, item state)
+    and the same screen set as mobile, so both clients feel like Kosh and swap
+    to the same API later.
+  - No SSR, no routing library, no component library — intentionally minimal.
+- **Alternatives rejected:** React Native Web for `apps/web` (duplicative — the
+  mobile app already runs on web; a separate RNW app would add little and be
+  harder to keep web-first); Next.js (SSR/complexity not needed for a personal
+  tool); a native desktop app (out of scope).
+
+### D14 — Shared package owns mock data + item state
+
+- **Status:** Accepted (web client)
+- **Decision:** `@kosh/shared` now contains more than types: design tokens,
+  platform-neutral utilities (time, search, grouping, labels, id), the mock
+  data generator (`createMockItems`), and the React `ItemsProvider`/`useItems`
+  context. Both clients render the same item-state context.
+- **Why:** One implementation of item behavior and one mock dataset across
+  both clients, and a single seam to replace with API-backed state when the
+  backend lands (Phase 2). Avoids two divergent models.
+- **Note:** this makes `@kosh/shared` a React library (it declares `react` as a
+  peer dependency). API-facing types remain there too.
+
 ## Product decisions
 
 ### P1 — No category selection at capture time

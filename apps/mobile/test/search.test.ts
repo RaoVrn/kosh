@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Item } from '@kosh/shared'
-import { searchItems } from '../src/utils/search'
+import { searchItems } from '@kosh/shared'
 
 function item(overrides: Partial<Item> & Pick<Item, 'id' | 'title'>): Item {
   return {

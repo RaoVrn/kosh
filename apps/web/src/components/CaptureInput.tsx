@@ -1,0 +1,59 @@
+import { useRef, useState } from 'react'
+import { Icon } from './Icon'
+
+interface CaptureInputProps {
+  innerRef?: React.RefObject<HTMLInputElement | null>
+  onSubmit: (text: string) => void
+  onMicPress?: () => void
+  placeholder?: string
+}
+
+export function CaptureInput({
+  innerRef,
+  onSubmit,
+  onMicPress,
+  placeholder = "What's on your mind?",
+}: CaptureInputProps) {
+  const [text, setText] = useState('')
+  const fallbackRef = useRef<HTMLInputElement>(null)
+  const inputRef = innerRef ?? fallbackRef
+  const canSubmit = text.trim().length > 0
+
+  const handleSubmit = () => {
+    const value = text.trim()
+    if (!value) return
+    onSubmit(value)
+    setText('')
+  }
+
+  return (
+    <form
+      className="capture"
+      onSubmit={(e) => {
+        e.preventDefault()
+        handleSubmit()
+      }}
+    >
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={placeholder}
+        aria-label="Capture text"
+        autoComplete="off"
+      />
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={onMicPress}
+        aria-label="Voice capture"
+        title="Voice capture coming soon"
+      >
+        <Icon name="mic" size={18} />
+      </button>
+      <button type="submit" className="btn-send" disabled={!canSubmit} aria-label="Add to inbox">
+        <Icon name="arrow-up" size={18} color="currentColor" />
+      </button>
+    </form>
+  )
+}

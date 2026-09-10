@@ -1,4 +1,4 @@
-import { ItemsProvider } from './src/state/ItemsContext'
+import { ItemsProvider } from '@kosh/shared'
 import { NavProvider } from './src/state/NavContext'
 import { AppShell } from './src/components/AppShell'
 

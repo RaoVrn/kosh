@@ -8,13 +8,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,mobile -c blue,magenta \"npm run dev:api\" \"npm run dev:mobile\"",
+    "dev": "concurrently -n api,mobile,web -c blue,magenta,cyan \"npm run dev:api\" \"npm run dev:mobile\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace @kosh/api",
     "dev:mobile": "npm run start --workspace @kosh/mobile",
+    "dev:web": "npm run dev --workspace @kosh/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "build": "npm run build --workspace @kosh/api",
+    "build": "npm run build --workspaces --if-present",
     "format": "prettier --write ."
   },
   "devDependencies": {

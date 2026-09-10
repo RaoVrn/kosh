@@ -1,4 +1,4 @@
-import type { ItemStatus, ItemType, Priority } from '@kosh/shared'
+import type { ItemStatus, ItemType, Priority } from '../index'
 
 export const typeLabel: Record<ItemType, string> = {
   task: 'Task',

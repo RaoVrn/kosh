@@ -2,7 +2,7 @@
   "name": "@kosh/shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared TypeScript types + constants for Kosh (API contract)",
+  "description": "Shared TypeScript types, design tokens, utilities, mock data and item state for Kosh (both clients)",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -12,7 +12,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "react": ">=18"
+  },
   "devDependencies": {
+    "@types/react": "~19.2.2",
     "typescript": "^6.0.3"
   }
 }

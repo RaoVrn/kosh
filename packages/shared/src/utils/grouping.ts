@@ -1,4 +1,4 @@
-import type { Item } from '@kosh/shared'
+import type { Item } from '../index'
 import { isDueToday, isOverdue } from './time'
 
 export interface TodayGroup {

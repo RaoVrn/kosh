@@ -24,8 +24,9 @@ Kosh removes the friction of _organizing_ at capture time. You dump raw text
 ## Target usage
 
 A single person ("second brain") using Kosh primarily from a phone, with a web
-or desktop interface as a secondary surface later. It is not a multi-user SaaS.
-It is a personal productivity tool.
+(or desktop) interface as a secondary surface. It is not a multi-user SaaS.
+It is a personal productivity tool. Both surfaces share the same backend and,
+once persistence ships, the same data.
 
 ## Core philosophy
 

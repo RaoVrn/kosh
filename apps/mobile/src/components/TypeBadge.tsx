@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { ItemType } from '@kosh/shared'
 import { radius, typeColors } from '../theme'
-import { typeLabel } from '../utils/labels'
+import { typeLabel } from '@kosh/shared'
 
 interface TypeBadgeProps {
   type: ItemType

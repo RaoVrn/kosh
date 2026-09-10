@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius, spacing } from '../theme'
-import { useItems } from '../state/ItemsContext'
+import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { TaskItem } from '../components/TaskItem'
 import { EmptyState } from '../components/EmptyState'
-import { sortPendingTasks } from '../utils/grouping'
-import { isOverdue } from '../utils/time'
+import { sortPendingTasks } from '@kosh/shared'
+import { isOverdue } from '@kosh/shared'
 
 type TaskFilter = 'all' | 'pending' | 'completed' | 'overdue'
 

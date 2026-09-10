@@ -1,4 +1,4 @@
-import type { Item } from '@kosh/shared'
+import type { Item } from '../index'
 
 export function searchItems(items: Item[], query: string): Item[] {
   const q = query.trim().toLowerCase()

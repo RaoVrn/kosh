@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { colors, spacing } from '../theme'
-import { useItems } from '../state/ItemsContext'
+import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { TaskItem } from '../components/TaskItem'
 import { EmptyState } from '../components/EmptyState'
-import { getTodayGroups } from '../utils/grouping'
+import { getTodayGroups } from '@kosh/shared'
 
 export function TodayScreen() {
   const { items, toggleDone } = useItems()

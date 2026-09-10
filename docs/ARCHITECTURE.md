@@ -4,43 +4,74 @@ This is the technical architecture for the MVP. It is deliberately simple.
 
 ## Overview
 
+**Kosh has two client applications:**
+
+1. **Mobile client** (`apps/mobile`) — Expo / React Native, the primary phone
+   surface (iOS/Android; also runs on web via React Native Web).
+2. **Web client** (`apps/web`) — Vite + React, the laptop/desktop browser
+   surface, a web-first interface.
+
+**Both clients communicate with the same backend API (`apps/api`).** The
+backend is the source of truth once persistence is implemented. Data should
+**NOT** be independently stored in the mobile and web applications — both
+clients use mock/local state today only because the API has no item endpoints
+yet; when persistence lands, both swap their state layer to the same API.
+
 ```
-┌──────────────────┐     HTTP / JSON      ┌───────────────────┐
-│  apps/mobile      │ ──────────────────► │  apps/api (Hono)   │
-│  Expo / React     │                      │  Node 26 / TS      │
-│  Native / TS      │ ◄────────────────── │                    │
-└──────────────────┘       JSON responses │       │            │
-                                          │       │ node:sqlite│
-                                          │       ▼            │
-                                          │  SQLite file       │
-                                          └───────────────────┘
+┌──────────────────┐    ┌──────────────────┐     HTTP / JSON      ┌───────────────────┐
+│  apps/mobile      │    │  apps/web        │ ──────────────────► │  apps/api (Hono)   │
+│  Expo / RN / TS   │    │  Vite / React/TS │                     │  Node 26 / TS      │
+└──────────────────┘    └──────────────────┘ ◄────────────────── │                    │
+      one codebase,          web-first UI,      JSON responses   │       │            │
+      mobile-first UI        laptop/desktop                      │       │ node:sqlite│
+                                                                 │       ▼            │
+                                                                 │  SQLite file       │
+                                                                 └───────────────────┘
 ```
 
 - One repository (npm workspaces monorepo).
-- The mobile app talks to the API over HTTP with JSON.
+- Both clients share `packages/shared`: types, constants, design tokens, pure
+  utilities, mock data, and the item-state context.
 - The API is the only system of record; it persists to a SQLite file.
-- Shared TypeScript types in `packages/shared` keep the two ends in sync.
 
-## Frontend (apps/mobile)
+## Clients
 
-- **Stack:** Expo SDK + React Native + TypeScript. Also runs on the web via
-  React Native Web (`react-dom`, `react-native-web`) — the same codebase is
-  the desktop surface.
+### Mobile client (apps/mobile)
+
+- **Stack:** Expo SDK + React Native + TypeScript.
 - **Screens:** 8 — Inbox, Today, Tasks, Notes, Ideas, Learning, Search,
   Settings. One file per screen under `src/screens/`.
 - **Navigation:** custom responsive shell (see DECISIONS D11) — bottom tab bar
   with a center capture button on mobile, sidebar on desktop (≥768px).
   Screens are rendered from a `screen` value in a React context.
-- **Rendering:** React Native primitives, styled with plain `StyleSheet` and a
-  design-tokens module (`src/theme.ts`, dark theme).
-- **State:** plain React context (`ItemsContext` for items + actions,
-  `NavContext` for navigation). Data starts as mock items in
-  `src/data/mockItems.ts`; a thin context boundary keeps swapping to API calls
-  (Phase 2) local. No state library (see DECISIONS D8).
+- **Rendering:** React Native primitives, styled with plain `StyleSheet` and
+  design tokens from `@kosh/shared` (dark theme).
 - **Item detail:** a shared bottom-sheet/dialog (`ItemDetailSheet`) opens any
   item for viewing and editing (type, priority, due date, body, done, delete).
-- **Search:** client-side over the mock data (`src/utils/search.ts`); replaced
-  by backend/FTS search in Phase 5.
+
+### Web client (apps/web)
+
+- **Stack:** Vite + React + TypeScript. Runs at `http://localhost:3000`.
+- **Purpose:** the laptop/desktop surface. Web-first: sidebar navigation on
+  wide screens, a compact top nav bar under 768px. It intentionally is _not_
+  a second mobile app — it uses the wider screen with a content column.
+- **Screens:** the same 8 screens, one file per screen under `src/screens/`.
+- **Rendering:** plain HTML/CSS with a single `styles.css` that mirrors the
+  `@kosh/shared` design tokens (same dark visual identity as mobile).
+- **Item detail:** a centered dialog (`ItemDetailModal`) with the same
+  edit/done/delete model as mobile.
+- **Navigation:** a `NavContext` (screen + selected item + capture focus);
+  responsive via `window.innerWidth` (sidebar ↔ compact top bar).
+
+### Shared package (packages/shared)
+
+- Types & constants (`Item`, `ItemType`, `Priority`, `ScreenName`, …).
+- Design tokens (`colors`, `spacing`, `radius`, `layout`, `typeColors`, …).
+- Pure utilities used by both clients: time formatting/grouping, search,
+  labels, id generation.
+- Mock data (`createMockItems`) and the item state (`ItemsProvider` /
+  `useItems`). Both clients render this identical context today; it is the
+  single seam to replace with API-backed state in Phase 2.
 
 ## Backend (apps/api)
 
@@ -127,13 +158,16 @@ Conventions:
 - This keeps AI as an optional post-processing step: captures always succeed
   even if the AI call fails.
 
-## How mobile and backend communicate
+## How clients and backend communicate
 
 - HTTP/JSON over a local network. In development the phone (Expo Go) reaches
-  the API at the host machine's LAN IP.
+  the API at the host machine's LAN IP; the web client reaches it at
+  `http://localhost:3001`.
 - The mobile app reads its API base URL from `EXPO_PUBLIC_API_URL`
   (defaults to `http://localhost:3001`). When running on a physical device,
   set it to `http://<host-lan-ip>:3001`.
+- The web app reads its API base URL from `VITE_API_URL` (defaults to
+  `http://localhost:3001`).
 - No WebSockets, no streaming, no GraphQL in the MVP.
 
 ## Local development
@@ -144,8 +178,9 @@ Prerequisites: Node 26+, npm 11+.
 npm install            # install everything (hoisted by workspaces)
 npm run dev:api        # API on http://localhost:3001 (tsx watch)
 npm run dev:mobile     # Expo dev server / Metro (press w for web)
+npm run dev:web        # Web client on http://localhost:3000 (Vite)
 npm run typecheck      # tsc --noEmit across all workspaces
-npm test               # vitest (API + mobile utils)
+npm test               # vitest (API + mobile utils + web interaction)
 npm run lint           # ESLint
 ```
 

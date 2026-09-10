@@ -3,7 +3,7 @@ import { colors, layout, radius, spacing } from '../theme'
 import { Icon } from './Icon'
 import type { IconName, ScreenName } from '../navigation/types'
 import { PRIMARY_SECTIONS, SCREEN_ICONS, SCREEN_TITLES } from '../navigation/types'
-import { useItems } from '../state/ItemsContext'
+import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 
 export function Sidebar() {

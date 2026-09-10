@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native'
 import { colors, radius, spacing } from '../theme'
-import { useItems } from '../state/ItemsContext'
+import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/Icon'
-import { searchItems } from '../utils/search'
+import { searchItems } from '@kosh/shared'
 
 export function SearchScreen() {
   const { items, toggleDone } = useItems()

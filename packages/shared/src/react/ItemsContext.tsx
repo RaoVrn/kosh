@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Item, ItemType, Priority, ItemStatus } from '@kosh/shared'
-import { createMockItems } from '../data/mockItems'
+import type { Item, ItemType, Priority, ItemStatus } from '../index'
+import { createMockItems } from '../mockData'
 import { uid } from '../utils/id'
 
 export interface ItemPatch {

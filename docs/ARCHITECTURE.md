@@ -23,15 +23,24 @@ This is the technical architecture for the MVP. It is deliberately simple.
 
 ## Frontend (apps/mobile)
 
-- **Stack:** Expo SDK + React Native + TypeScript.
+- **Stack:** Expo SDK + React Native + TypeScript. Also runs on the web via
+  React Native Web (`react-dom`, `react-native-web`) — the same codebase is
+  the desktop surface.
+- **Screens:** 8 — Inbox, Today, Tasks, Notes, Ideas, Learning, Search,
+  Settings. One file per screen under `src/screens/`.
+- **Navigation:** custom responsive shell (see DECISIONS D11) — bottom tab bar
+  with a center capture button on mobile, sidebar on desktop (≥768px).
+  Screens are rendered from a `screen` value in a React context.
 - **Rendering:** React Native primitives, styled with plain `StyleSheet` and a
-  small design-tokens module (dark theme).
-- **Navigation:** React Navigation (added in Phase 2 when screens exist).
-- **State:** plain React state + a small API client module. No state library
-  (see DECISIONS D8).
-- **Web/desktop later:** the same `apps/mobile` codebase can target React
-  Native Web, or a new `apps/web` workspace can be added that reuses
-  `@kosh/shared` and the API.
+  design-tokens module (`src/theme.ts`, dark theme).
+- **State:** plain React context (`ItemsContext` for items + actions,
+  `NavContext` for navigation). Data starts as mock items in
+  `src/data/mockItems.ts`; a thin context boundary keeps swapping to API calls
+  (Phase 2) local. No state library (see DECISIONS D8).
+- **Item detail:** a shared bottom-sheet/dialog (`ItemDetailSheet`) opens any
+  item for viewing and editing (type, priority, due date, body, done, delete).
+- **Search:** client-side over the mock data (`src/utils/search.ts`); replaced
+  by backend/FTS search in Phase 5.
 
 ## Backend (apps/api)
 
@@ -134,9 +143,9 @@ Prerequisites: Node 26+, npm 11+.
 ```
 npm install            # install everything (hoisted by workspaces)
 npm run dev:api        # API on http://localhost:3001 (tsx watch)
-npm run dev:mobile     # Expo dev server / Metro
+npm run dev:mobile     # Expo dev server / Metro (press w for web)
 npm run typecheck      # tsc --noEmit across all workspaces
-npm test               # vitest (API tests)
+npm test               # vitest (API + mobile utils)
 npm run lint           # ESLint
 ```
 

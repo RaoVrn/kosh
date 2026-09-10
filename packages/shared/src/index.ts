@@ -2,9 +2,13 @@ export type ItemType = 'task' | 'note' | 'idea' | 'learning' | 'link'
 
 export type ItemStatus = 'inbox' | 'active' | 'done' | 'archived'
 
+export type Priority = 'low' | 'medium' | 'high'
+
 export const ITEM_TYPES: readonly ItemType[] = ['task', 'note', 'idea', 'learning', 'link']
 
 export const ITEM_STATUSES: readonly ItemStatus[] = ['inbox', 'active', 'done', 'archived']
+
+export const PRIORITIES: readonly Priority[] = ['low', 'medium', 'high']
 
 export interface Item {
   id: string
@@ -15,6 +19,8 @@ export interface Item {
   url?: string | null
   dueAt?: string | null
   reminderAt?: string | null
+  priority?: Priority | null
+  tags?: string[] | null
   createdAt: string
   updatedAt: string
   doneAt?: string | null

@@ -10,32 +10,47 @@ necessary.
 ## Status
 
 ```
-FOUNDATION / NOT YET IMPLEMENTED
+FRONTEND MVP SHELL COMPLETE / BACKEND PENDING
 ```
 
-The monorepo and tooling are in place; the API and mobile app boot. No
-application features are built yet. See `docs/ROADMAP.md` for the plan.
+The mobile app has a complete, usable frontend shell (8 screens, capture,
+client-side search, mock data). The backend is foundation-only (health check).
+See `docs/ROADMAP.md` for the plan.
+
+### What works now (frontend, mock data)
+
+- Inbox with quick capture ("What's on your mind?") — adds items, mic
+  placeholder
+- Today view grouped into Overdue / Important / Today / Upcoming
+- Tasks with filters (All / Pending / Completed / Overdue), priority, due dates,
+  mark-done
+- Notes, Ideas, and a Learning backlog
+- Search across everything (client-side)
+- Item detail sheet: edit type/priority/due date/body, mark done, delete
+- Responsive layout — bottom tab bar + center capture button on mobile,
+  sidebar on desktop (runs in a browser via React Native Web)
 
 ## Stack
 
-| Layer    | Choice                                                            |
-| -------- | ----------------------------------------------------------------- |
-| Mobile   | Expo SDK + React Native + TypeScript (dark, text-first UI)        |
-| API      | Hono on Node 26, TypeScript, run via `tsx`                        |
-| Database | SQLite via Node's built-in `node:sqlite` (single file, no server) |
-| Shared   | `@kosh/shared` TypeScript types (API contract)                    |
-| Tooling  | npm workspaces · TypeScript strict · ESLint · Prettier · vitest   |
+| Layer       | Choice                                                            |
+| ----------- | ----------------------------------------------------------------- |
+| Mobile      | Expo SDK + React Native + TypeScript (dark, text-first UI)        |
+| Desktop/web | Same codebase via React Native Web                                |
+| API         | Hono on Node 26, TypeScript, run via `tsx`                        |
+| Database    | SQLite via Node's built-in `node:sqlite` (single file, no server) |
+| Shared      | `@kosh/shared` TypeScript types (API contract)                    |
+| Tooling     | npm workspaces · TypeScript strict · ESLint · Prettier · vitest   |
 
 Deliberate non-choices for the MVP: no auth, no AI, no voice, no ORM, no state
-library, no UI kit, no Docker. The reasoning for every choice is in
-`docs/DECISIONS.md`.
+library, no UI kit, no react-navigation, no Docker. The reasoning for every
+choice is in `docs/DECISIONS.md`.
 
 ## Repository layout
 
 ```
 apps/
   api/            Hono HTTP API (SQLite, migrations, routes)
-  mobile/         Expo app (React Native)
+  mobile/         Expo app (React Native) — screens, components, state, data
 packages/
   shared/         Shared TypeScript types + constants
 docs/             PRODUCT · ARCHITECTURE · ROADMAP · DECISIONS
@@ -48,7 +63,7 @@ Prerequisites: **Node 26+**, **npm 11+**. No Docker, no database server.
 ```sh
 npm install          # install all workspaces
 npm run dev:api      # API on http://localhost:3001 (auto-reload)
-npm run dev:mobile   # Expo dev server / Metro
+npm run dev:mobile   # Expo dev server / Metro (press w for web)
 ```
 
 Environment variables (all optional):

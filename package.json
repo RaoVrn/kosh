@@ -13,7 +13,7 @@
     "dev:mobile": "npm run start --workspace @kosh/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspace @kosh/api",
+    "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspace @kosh/api",
     "format": "prettier --write ."
   },

@@ -120,6 +120,35 @@ whenever an important technical or product decision is made.
 - **Why:** Expo's push service is the least-infrastructure way to get reliable
   mobile notifications without running APNs/FCM ourselves.
 
+### D11 — Custom responsive navigation shell, not React Navigation
+
+- **Status:** Accepted (MVP shell)
+- **Decision:** Navigation is a small custom shell: a screen name held in React
+  context, a bottom tab bar on mobile, a sidebar on desktop, and a bottom-sheet
+  detail view for items. No react-navigation, no expo-router.
+- **Why:**
+  - The MVP needs exactly one level of navigation (sections + one detail
+    overlay); a library would add version-matching constraints (RN 0.86 /
+    Expo 57) for little gain.
+  - A custom shell gives full control over the responsive pattern (bottom tabs
+    - center capture button on mobile, sidebar on desktop) that React
+      Navigation does not do out of the box.
+  - Adding dependencies only when they earn their place (AGENTS.md convention).
+- **Revisit if:** deep linking, nested stacks, or complex gestures are needed —
+  then adopt expo-router/react-navigation and delete the shell.
+
+### D12 — Desktop/web via React Native Web on the same codebase
+
+- **Status:** Accepted (MVP shell)
+- **Decision:** The "desktop" experience is the same `apps/mobile` codebase
+  running on the web through React Native Web (`react-dom`, `react-native-web`).
+  Responsive layout switches on window width (sidebar ≥ 768px, tab bar below).
+- **Why:** One codebase, one UI kit, zero duplication. The phone app stays the
+  primary surface; the web build is the secondary surface for testing and quick
+  capture from a computer.
+- **Alternatives rejected:** A separate `apps/web` (duplicated UI for the same
+  screens); a native macOS app (out of scope for MVP).
+
 ## Product decisions
 
 ### P1 — No category selection at capture time
@@ -138,6 +167,9 @@ whenever an important technical or product decision is made.
   `reminder_at`).
 - **Why:** It matches the product reality (a capture is a capture) and makes
   auto-classification a simple field update instead of a data migration.
+- **Note:** the shared `Item` type now also carries optional `priority`
+  (`low | medium | high`) and `tags`. The future backend `items` schema must
+  include `priority` and `tags` columns to match (see ROADMAP Phase 2).
 
 ### P3 — Dark theme only, minimal UI
 

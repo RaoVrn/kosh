@@ -4,15 +4,19 @@
   "private": true,
   "main": "index.ts",
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "@kosh/shared": "*",
     "expo": "~57.0.21",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-web": "^0.21.2"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^3.0.0"
   },
   "scripts": {
     "start": "expo start",
@@ -20,6 +24,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   }
 }

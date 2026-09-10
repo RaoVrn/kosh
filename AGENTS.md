@@ -16,13 +16,19 @@ you when necessary.
 ## Current Project Status
 
 ```
-FOUNDATION / NOT YET IMPLEMENTED
+FRONTEND MVP SHELL COMPLETE / BACKEND PENDING
 ```
 
-- Monorepo scaffolded, tooling configured, API and mobile app boot.
-- No application features are implemented yet (no capture, no CRUD, no search,
-  no voice, no reminders).
-- Next milestone: **Phase 2 — Core capture** (see `docs/ROADMAP.md`).
+- **Mobile (`apps/mobile`)**: full application shell with 8 screens — Inbox,
+  Today, Tasks, Notes, Ideas, Learning, Search, Settings. Dark, minimal,
+  mobile-first UI with a responsive layout (bottom tab bar + capture button on
+  mobile, sidebar on desktop). Inbox quick-capture, item detail sheet (edit
+  type/priority/due/body, mark done, delete), client-side search, and rich
+  mock data. Data lives in React context + mock data only — **nothing is wired
+  to the API yet**.
+- **API (`apps/api`)**: foundation only (`GET /api/v1/health`). No CRUD.
+- Next milestone: **Phase 2 — wire capture/CRUD to the API** (see
+  `docs/ROADMAP.md`).
 
 This status section must be updated whenever a milestone completes or the
 architecture changes.
@@ -31,12 +37,18 @@ architecture changes.
 
 - **Monorepo** — npm workspaces: `apps/mobile`, `apps/api`, `packages/shared`.
 - **Mobile:** Expo SDK + React Native + TypeScript. Dark, minimal, text-first.
+  8 screens, responsive shell (custom navigation: bottom tabs on mobile,
+  sidebar on desktop), mock-data state via React context. Runs on web via
+  React Native Web (`npm run dev:mobile` → press `w`).
 - **API:** Hono on Node 26, TypeScript, run via `tsx`.
 - **DB:** SQLite via Node's built-in `node:sqlite` (`DatabaseSync`). No server,
   no native deps. Migrations are plain SQL in `apps/api/migrations/`.
-- **Shared types:** `@kosh/shared` defines the API contract used by both ends.
+- **Shared types:** `@kosh/shared` defines the API contract used by both ends
+  (including `Item.priority` and `Item.tags` — the future backend schema must
+  include them).
 - **No auth** in the MVP, **no AI**, **no voice**, **no ORM**, **no state
-  library**, **no UI kit** yet — these are deliberate (see `docs/DECISIONS.md`).
+  library**, **no UI kit**, **no react-navigation** (custom shell) yet — these
+  are deliberate (see `docs/DECISIONS.md`).
 
 Full detail: `docs/ARCHITECTURE.md` · `docs/PRODUCT.md` · `docs/DECISIONS.md`.
 
@@ -53,6 +65,14 @@ apps/
       routes/     HTTP handlers
     test/         vitest tests
   mobile/         Expo app (React Native, TypeScript)
+    src/
+      components/ shared UI (AppShell, ItemCard, CaptureInput, …)
+      screens/     one file per screen (Inbox, Today, Tasks, …)
+      state/       React context (items + navigation) with mock data
+      data/        mock items (swap for API calls in Phase 2)
+      utils/       pure helpers: time, labels, grouping, search
+      navigation/  screen names + icons
+    test/         vitest tests for utils
 packages/
   shared/         Shared TypeScript types + constants
 docs/             PRODUCT / ARCHITECTURE / ROADMAP / DECISIONS
@@ -65,7 +85,7 @@ Prerequisites: **Node 26+**, **npm 11+**. No Docker, no database server.
 ```
 npm install          # install all workspaces (hoisted at root)
 npm run dev:api      # API on http://localhost:3001 (auto-reload)
-npm run dev:mobile   # Expo dev server / Metro
+npm run dev:mobile   # Expo dev server / Metro (press w for web)
 ```
 
 Environment (all optional):
@@ -80,7 +100,7 @@ Environment (all optional):
 ```
 npm run typecheck    # tsc --noEmit across all workspaces
 npm run lint         # ESLint across all workspaces
-npm test             # vitest (API tests)
+npm test             # vitest (API + mobile utils)
 npm run build        # build the API to dist/
 ```
 
@@ -114,7 +134,8 @@ without actually running it.**
 - **DB:** use `node:sqlite`. New schema changes = a new numbered SQL file in
   `apps/api/migrations/` that is idempotent (`IF NOT EXISTS`).
 - **Mobile:** plain `StyleSheet` + a design-tokens module for the dark theme.
-  No UI kit, no state library.
+  No UI kit, no state library, no react-navigation (custom responsive shell:
+  bottom tabs on mobile, sidebar on desktop).
 - **Naming:** `camelCase` for code, `snake_case` for DB columns,
   `kebab-case` for files. PascalCase for React components/types.
 - **No code comments unless they explain a non-obvious decision.** Prefer clear

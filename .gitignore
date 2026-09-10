@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Expo / React Native
+.expo/
+web-build/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+.idea/
+.vscode/
+
+# Local data (SQLite)
+apps/api/data/
+
+# Environment
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+*.log
+coverage/

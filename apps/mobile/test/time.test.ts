@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
+  atTimeOnDay,
   daysFromNow,
+  endOfDayFromNow,
   formatDue,
+  formatDueAt,
+  formatReminderAt,
+  formatTime,
+  fromDatetimeLocalValue,
   isDueToday,
   isOverdue,
   isTomorrow,
   isUpcoming,
   relativeTime,
   startOfDay,
+  toDatetimeLocalValue,
 } from '@kosh/shared'
 
 const REF = new Date(2026, 8, 11, 12, 0, 0)
@@ -35,9 +42,12 @@ describe('time utils', () => {
     expect(isTomorrow(iso(2026, 9, 11, 10, 0), REF)).toBe(false)
   })
 
-  it('isOverdue compares against start of today', () => {
+  it('isOverdue is time-based: only when the due time has passed', () => {
     expect(isOverdue(iso(2026, 9, 10, 23, 59, 59), REF)).toBe(true)
-    expect(isOverdue(iso(2026, 9, 11, 0, 0), REF)).toBe(false)
+    expect(isOverdue(iso(2026, 9, 11, 11, 59, 59), REF)).toBe(true)
+    expect(isOverdue(iso(2026, 9, 11, 12, 0, 0), REF)).toBe(false)
+    expect(isOverdue(iso(2026, 9, 11, 13, 0), REF)).toBe(false)
+    expect(isOverdue(iso(2026, 9, 12, 0, 0), REF)).toBe(false)
   })
 
   it('isUpcoming is strictly after today', () => {
@@ -60,9 +70,35 @@ describe('time utils', () => {
     expect(formatDue(iso(2026, 9, 14, 15, 0), REF)).toMatch(/^[A-Za-z]{3}$/)
   })
 
-  it('daysFromNow produces ISO strings on the right calendar day', () => {
+  it('formatTime and formatDueAt render the local time of day', () => {
+    const at = iso(2026, 9, 11, 18, 0)
+    expect(formatTime(at)).toMatch(/\d{1,2}:\d{2}/)
+    expect(formatDueAt(at, REF)).toBe(`Today, ${formatTime(at)}`)
+    expect(formatDueAt(iso(2026, 9, 12, 10, 0), REF)).toBe(
+      `Tomorrow, ${formatTime(iso(2026, 9, 12, 10, 0))}`,
+    )
+    expect(formatReminderAt(at, REF)).toBe(`Today, ${formatTime(at)}`)
+  })
+
+  it('daysFromNow / endOfDayFromNow produce the right calendar days', () => {
     expect(isDueToday(daysFromNow(0, REF), REF)).toBe(true)
     expect(isTomorrow(daysFromNow(1, REF), REF)).toBe(true)
     expect(isOverdue(daysFromNow(-1, REF), REF)).toBe(true)
+    expect(isDueToday(endOfDayFromNow(0, REF), REF)).toBe(true)
+    expect(isTomorrow(endOfDayFromNow(1, REF), REF)).toBe(true)
+  })
+
+  it('atTimeOnDay yields a specific local time', () => {
+    const d = new Date(atTimeOnDay(1, 9, 30, REF))
+    expect(d.getDate()).toBe(12)
+    expect(d.getHours()).toBe(9)
+    expect(d.getMinutes()).toBe(30)
+  })
+
+  it('datetime-local value round-trips through local time', () => {
+    const original = new Date(2026, 8, 11, 18, 30, 0).toISOString()
+    const roundTripped = fromDatetimeLocalValue(toDatetimeLocalValue(original))
+    expect(new Date(roundTripped).getHours()).toBe(18)
+    expect(new Date(roundTripped).getMinutes()).toBe(30)
   })
 })

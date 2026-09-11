@@ -2,119 +2,112 @@ import { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius, spacing } from '../theme'
 import { useItems } from '@kosh/shared'
+import { getTaskGroups } from '@kosh/shared'
+import type { Item } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { TaskItem } from '../components/TaskItem'
 import { EmptyState } from '../components/EmptyState'
-import { sortPendingTasks } from '@kosh/shared'
-import { isOverdue } from '@kosh/shared'
-
-type TaskFilter = 'all' | 'pending' | 'completed' | 'overdue'
-
-const FILTERS: { key: TaskFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'overdue', label: 'Overdue' },
-]
+import { TaskCreateSheet } from '../components/TaskCreateSheet'
+import { Icon } from '../components/Icon'
 
 export function TasksScreen() {
   const { items, toggleDone } = useItems()
   const { openItem } = useNav()
-  const [filter, setFilter] = useState<TaskFilter>('all')
+  const [creating, setCreating] = useState(false)
 
-  const tasks = useMemo(() => sortPendingTasks(items), [items])
+  const groups = useMemo(() => getTaskGroups(items), [items])
+  const pendingCount = useMemo(
+    () => items.filter((i) => i.type === 'task' && i.status !== 'done').length,
+    [items],
+  )
 
-  const filtered = useMemo(() => {
-    switch (filter) {
-      case 'pending':
-        return tasks.filter((t) => t.status !== 'done')
-      case 'completed':
-        return tasks.filter((t) => t.status === 'done')
-      case 'overdue':
-        return tasks.filter((t) => t.status !== 'done' && t.dueAt && isOverdue(t.dueAt))
-      default:
-        return tasks
-    }
-  }, [tasks, filter])
-
-  const pendingCount = useMemo(() => tasks.filter((t) => t.status !== 'done').length, [tasks])
+  const sections: { key: string; title: string; items: Item[] }[] = [
+    { key: 'overdue', title: 'Overdue', items: groups.overdue },
+    { key: 'today', title: 'Today', items: groups.today },
+    { key: 'upcoming', title: 'Upcoming', items: groups.upcoming },
+    { key: 'nodue', title: 'No due date', items: groups.nodue },
+    { key: 'completed', title: 'Completed', items: groups.completed },
+  ]
+  const isEmpty = sections.every((s) => s.items.length === 0)
 
   return (
     <Content>
-      <PageHeader title="Tasks" subtitle="Everything you've committed to." count={pendingCount} />
+      <PageHeader
+        title="Tasks"
+        subtitle="Everything you've committed to."
+        count={pendingCount}
+        right={
+          <Pressable
+            onPress={() => setCreating(true)}
+            accessibilityRole="button"
+            accessibilityLabel="New task"
+            style={({ pressed }) => [styles.newTask, pressed && styles.pressed]}
+          >
+            <Icon name="plus" size={16} color={colors.background} />
+            <Text style={styles.newTaskText}>New task</Text>
+          </Pressable>
+        }
+      />
 
-      <View style={styles.filters}>
-        {FILTERS.map((f) => {
-          const active = filter === f.key
-          return (
-            <Pressable
-              key={f.key}
-              onPress={() => setFilter(f.key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`Filter: ${f.label}`}
-              style={({ pressed }) => [
-                styles.filter,
-                active && styles.filterActive,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{f.label}</Text>
-            </Pressable>
-          )
-        })}
-      </View>
-
-      {filtered.length === 0 ? (
+      {isEmpty ? (
         <EmptyState
           icon="check-square"
-          title="No tasks here"
-          message="Tasks you add or capture will show up here."
+          title="No tasks yet"
+          message="Capture something and convert it to a task, or add a new task."
         />
       ) : (
-        filtered.map((task) => (
-          <TaskItem
-            key={task.id}
-            item={task}
-            onPress={() => openItem(task.id)}
-            onToggleDone={() => toggleDone(task.id)}
-          />
-        ))
+        sections.map(
+          (section) =>
+            section.items.length > 0 && (
+              <View key={section.key} style={styles.group}>
+                <Text style={styles.groupTitle}>{section.title}</Text>
+                {section.items.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    item={task}
+                    onPress={() => openItem(task.id)}
+                    onToggleDone={() => toggleDone(task.id)}
+                  />
+                ))}
+              </View>
+            ),
+        )
       )}
+
+      {creating ? <TaskCreateSheet onClose={() => setCreating(false)} /> : null}
     </Content>
   )
 }
 
 const styles = StyleSheet.create({
-  filters: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+  group: {
+    marginBottom: spacing.xl,
   },
-  filter: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+  groupTitle: {
+    color: colors.textFaint,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+  },
+  newTask: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.accent,
     borderRadius: radius.md,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
   },
-  filterActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  filterText: {
-    color: colors.textMuted,
+  newTaskText: {
+    color: colors.background,
     fontSize: 13,
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.8,
   },
 })

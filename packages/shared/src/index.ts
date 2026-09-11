@@ -6,7 +6,10 @@ export * from './utils/grouping'
 export * from './utils/id'
 export * from './screens'
 export { createMockItems } from './mockData'
+export * from './api/itemsApi'
 export * from './react/ItemsContext'
+export * from './react/NotificationsContext'
+export * from './react/useServerSearch'
 
 export type ItemType = 'task' | 'note' | 'idea' | 'learning' | 'link'
 
@@ -29,11 +32,22 @@ export interface Item {
   url?: string | null
   dueAt?: string | null
   reminderAt?: string | null
+  remindedAt?: string | null
   priority?: Priority | null
   tags?: string[] | null
   createdAt: string
   updatedAt: string
   doneAt?: string | null
+}
+
+export interface KoshNotification {
+  id: string
+  itemId: string | null
+  type: string
+  title: string
+  body?: string | null
+  createdAt: string
+  readAt?: string | null
 }
 
 export type NewItem = Pick<Item, 'title'> &

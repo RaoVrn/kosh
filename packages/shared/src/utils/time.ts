@@ -33,7 +33,7 @@ export function isTomorrow(iso: string, ref: Date = new Date()): boolean {
 }
 
 export function isOverdue(iso: string, ref: Date = new Date()): boolean {
-  return new Date(iso).getTime() < startOfDay(ref).getTime()
+  return new Date(iso).getTime() < ref.getTime()
 }
 
 export function isUpcoming(iso: string, ref: Date = new Date()): boolean {
@@ -85,4 +85,49 @@ export function daysFromNow(n: number, ref: Date = new Date()): string {
   const d = startOfDay(ref)
   d.setDate(d.getDate() + n)
   return d.toISOString()
+}
+
+export function endOfDayFromNow(n: number, ref: Date = new Date()): string {
+  const d = startOfDay(ref)
+  d.setDate(d.getDate() + n)
+  return endOfDay(d).toISOString()
+}
+
+export function atTimeOnDay(
+  days: number,
+  hour: number,
+  minute: number,
+  ref: Date = new Date(),
+): string {
+  const d = startOfDay(ref)
+  d.setDate(d.getDate() + days)
+  d.setHours(hour, minute, 0, 0)
+  return d.toISOString()
+}
+
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+export function formatDueAt(iso: string, ref: Date = new Date()): string {
+  if (isToday(iso, ref)) return `Today, ${formatTime(iso)}`
+  if (isTomorrow(iso, ref)) return `Tomorrow, ${formatTime(iso)}`
+  return `${formatDue(iso, ref)}, ${formatTime(iso)}`
+}
+
+export function formatReminderAt(iso: string, ref: Date = new Date()): string {
+  return formatDueAt(iso, ref)
+}
+
+export function toDatetimeLocalValue(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+export function fromDatetimeLocalValue(value: string): string {
+  const [date, time] = value.split('T')
+  const [y, mo, d] = (date ?? '').split('-').map((n) => Number(n))
+  const [hh, mm] = (time ?? '00:00').split(':').map((n) => Number(n))
+  return new Date(y ?? 0, (mo ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0).toISOString()
 }

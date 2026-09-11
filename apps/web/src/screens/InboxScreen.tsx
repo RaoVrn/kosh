@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useItems } from '@kosh/shared'
+import { errorMessage, useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { PageHeader } from '../components/PageHeader'
 import { CaptureInput } from '../components/CaptureInput'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 
+interface Feedback {
+  message: string
+  isError: boolean
+}
+
 export function InboxScreen() {
   const { items, addItem, toggleDone } = useItems()
   const { openItem, captureFocusRequest } = useNav()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
 
   const inboxItems = useMemo(
@@ -27,26 +32,37 @@ export function InboxScreen() {
 
   useEffect(() => {
     if (!feedback) return
-    const timer = setTimeout(() => setFeedback(null), 1800)
+    const timer = setTimeout(() => setFeedback(null), 2200)
     return () => clearTimeout(timer)
   }, [feedback])
 
-  const handleSubmit = (text: string) => {
-    const item = addItem({ title: text })
-    setHighlightId(item.id)
-    setFeedback('Added to inbox')
-    setTimeout(() => setHighlightId(null), 1800)
+  const handleSubmit = async (text: string): Promise<boolean> => {
+    try {
+      const item = await addItem({ title: text })
+      setHighlightId(item.id)
+      setFeedback({ message: 'Added to inbox', isError: false })
+      setTimeout(() => setHighlightId(null), 1800)
+      return true
+    } catch (err) {
+      setFeedback({
+        message: errorMessage(err, 'Could not add — is the API running?'),
+        isError: true,
+      })
+      return false
+    }
   }
 
   const handleMic = () => {
-    setFeedback('Voice capture is coming soon')
+    setFeedback({ message: 'Voice capture is coming soon', isError: false })
   }
 
   return (
     <div className="content">
       <PageHeader title="Inbox" subtitle="Everything lands here first." count={inboxItems.length} />
       <CaptureInput onSubmit={handleSubmit} onMicPress={handleMic} innerRef={inputRef} />
-      {feedback ? <p className="feedback">{feedback}</p> : null}
+      {feedback ? (
+        <p className={feedback.isError ? 'feedback error' : 'feedback'}>{feedback.message}</p>
+      ) : null}
 
       {inboxItems.length === 0 ? (
         <EmptyState

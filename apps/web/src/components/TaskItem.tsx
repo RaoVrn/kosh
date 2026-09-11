@@ -1,5 +1,11 @@
 import type { Item } from '@kosh/shared'
-import { formatDue, isOverdue, priorityColors, priorityLabel } from '@kosh/shared'
+import {
+  formatDueAt,
+  formatReminderAt,
+  isOverdue,
+  priorityColors,
+  priorityLabel,
+} from '@kosh/shared'
 import { Badge } from './Badge'
 import { Icon } from './Icon'
 
@@ -46,7 +52,15 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
             <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
           ) : null}
           {item.dueAt ? (
-            <Badge label={formatDue(item.dueAt)} color={overdue ? '#ff6b5e' : '#9a9aa5'} />
+            <span className={`due-chip${overdue ? ' overdue' : ''}`}>
+              {formatDueAt(item.dueAt)}
+            </span>
+          ) : null}
+          {item.reminderAt && !done ? (
+            <span className="reminder-chip">
+              <Icon name="bell" size={11} />
+              {formatReminderAt(item.reminderAt)}
+            </span>
           ) : null}
         </div>
       </div>

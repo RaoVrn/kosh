@@ -341,6 +341,45 @@ textarea {
   margin-top: var(--space-2);
 }
 
+.feedback.error {
+  color: var(--danger);
+}
+
+/* ---------- error banner / loading ---------- */
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: var(--content-max);
+  margin: 16px auto 0;
+  padding: 10px 16px;
+  background: rgba(255, 107, 94, 0.12);
+  border: 1px solid rgba(255, 107, 94, 0.4);
+  border-radius: var(--radius-m);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.error-banner-text {
+  flex: 1;
+}
+
+.btn-retry {
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: var(--radius-s);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.btn-retry:hover {
+  background: var(--danger);
+  color: var(--bg);
+}
+
 /* ---------- cards ---------- */
 
 .card {
@@ -741,4 +780,155 @@ textarea {
 
 .group {
   margin-bottom: var(--space-5);
+}
+
+/* ---------- buttons ---------- */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: var(--radius-m);
+  padding: 9px 16px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ---------- task chips (due / reminder) ---------- */
+
+.due-chip,
+.reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-s);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.due-chip {
+  color: var(--text-muted);
+  background: rgba(154, 154, 165, 0.14);
+}
+
+.due-chip.overdue {
+  color: var(--danger);
+  background: rgba(255, 107, 94, 0.14);
+}
+
+.reminder-chip {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+/* ---------- task create / datetime ---------- */
+
+.modal-title-header {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.modal-title-input {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: 16px;
+  padding: 12px;
+  color: var(--text);
+}
+
+.datetime-input {
+  width: 100%;
+  margin-top: var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: 14px;
+  padding: 9px 12px;
+  color: var(--text);
+  color-scheme: dark;
+}
+
+.modal-meta.warning {
+  color: var(--warning);
+}
+
+.modal-meta.error-text {
+  color: var(--danger);
+}
+
+/* ---------- notifications ---------- */
+
+.notif {
+  text-align: left;
+  width: 100%;
+}
+
+.notif.unread {
+  border-color: var(--accent);
+}
+
+.notif-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.notif-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.notif.unread .notif-title {
+  color: var(--accent-strong);
+}
+
+/* ---------- top bar actions ---------- */
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topbar-bell-count {
+  align-self: flex-end;
+  margin: 0 0 18px -12px;
+}
+
+.settings-note {
+  margin: 0;
+  padding: 0 16px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
 }

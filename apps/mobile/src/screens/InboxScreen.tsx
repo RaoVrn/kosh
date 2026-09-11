@@ -2,19 +2,24 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, StyleSheet, Text, View } from 'react-native'
 import type { TextInput } from 'react-native'
 import { colors, layout, spacing } from '../theme'
-import { useItems } from '@kosh/shared'
+import { errorMessage, useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { PageHeader } from '../components/PageHeader'
 import { CaptureInput } from '../components/CaptureInput'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 
+interface Feedback {
+  message: string
+  isError: boolean
+}
+
 export function InboxScreen() {
   const { items, addItem, toggleDone } = useItems()
   const { openItem, captureFocusRequest } = useNav()
   const inputRef = useRef<TextInput>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
 
   const inboxItems = useMemo(
@@ -36,17 +41,23 @@ export function InboxScreen() {
     [],
   )
 
-  const showFeedback = (message: string) => {
-    setFeedback(message)
+  const showFeedback = (message: string, isError = false) => {
+    setFeedback({ message, isError })
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
-    feedbackTimer.current = setTimeout(() => setFeedback(null), 1800)
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 2200)
   }
 
-  const handleSubmit = (text: string) => {
-    const item = addItem({ title: text })
-    setHighlightId(item.id)
-    showFeedback('Added to inbox')
-    setTimeout(() => setHighlightId(null), 1800)
+  const handleSubmit = async (text: string): Promise<boolean> => {
+    try {
+      const item = await addItem({ title: text })
+      setHighlightId(item.id)
+      showFeedback('Added to inbox')
+      setTimeout(() => setHighlightId(null), 1800)
+      return true
+    } catch (err) {
+      showFeedback(errorMessage(err, 'Could not add — is the API running?'), true)
+      return false
+    }
   }
 
   const handleMic = () => {
@@ -62,7 +73,11 @@ export function InboxScreen() {
           count={inboxItems.length}
         />
         <CaptureInput innerRef={inputRef} onSubmit={handleSubmit} onMicPress={handleMic} />
-        {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
+        {feedback ? (
+          <Text style={[styles.feedback, feedback.isError && styles.feedbackError]}>
+            {feedback.message}
+          </Text>
+        ) : null}
       </View>
 
       <FlatList
@@ -117,5 +132,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: spacing.sm,
     fontWeight: '500',
+  },
+  feedbackError: {
+    color: colors.danger,
   },
 })

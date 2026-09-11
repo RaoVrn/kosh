@@ -16,26 +16,31 @@ you when necessary.
 ## Current Project Status
 
 ```
-TWO CLIENTS (MOBILE + WEB) ON MOCK DATA / BACKEND PENDING
+PERSISTENT SHARED DATA + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
 ```
 
-- **Mobile (`apps/mobile`)**: full application shell with 8 screens — Inbox,
-  Today, Tasks, Notes, Ideas, Learning, Search, Settings. Dark, minimal,
-  mobile-first UI with a responsive layout (bottom tab bar + capture button on
-  mobile, sidebar on desktop). Inbox quick-capture, item detail sheet (edit
-  type/priority/due/body, mark done, delete), client-side search, and rich
-  mock data.
-- **Web (`apps/web`)**: Vite + React + TypeScript, runs at
-  `http://localhost:3000`. The same 8 screens, web-first layout (sidebar on
-  desktop, compact top nav below 768px), capture input, item detail dialog,
-  client-side search. Interaction tests via vitest + Testing Library.
-- **Shared (`packages/shared`)**: types, design tokens, pure utilities, mock
-  data, and the `ItemsProvider` item-state context are shared by **both**
-  clients — one seam to swap for API-backed state in Phase 2.
-- **API (`apps/api`)**: foundation only (`GET /api/v1/health`). No CRUD.
-- Both clients use local/mock state; **nothing is wired to the API yet**.
-- Next milestone: **Phase 2 — implement `/api/v1/items` CRUD and wire both
-  clients to it** (see `docs/ROADMAP.md`).
+- **API (`apps/api`)**: `/api/v1/items` CRUD **+ FTS5 full-text search**
+  (`?q=…` with `type`/`status` filters, `limit`/`offset`, bm25 ranking) +
+  `/api/v1/notifications`, on Hono + SQLite, tracked migrations, validation,
+  CORS for local dev, explicit `db:seed`. In-process **reminder scheduler**
+  fires due reminders exactly once (persisted in-app notifications +
+  `reminded_at`).
+- **Mobile (`apps/mobile`)**: 8 screens + notifications, wired to the API
+  through the shared provider. Task creation/editing (priority, due, reminder),
+  grouped Tasks/Today screens, notification center, local notification
+  scheduling, and a debounced server-side Search screen.
+- **Web (`apps/web`)**: Vite + React on `http://localhost:3000`, same screens,
+  New Task modal, notification center with unread badge, browser-notification
+  toggle, server-side Search with type filters.
+- **Shared (`packages/shared`)**: typed API client (items + search params +
+  notifications), API-backed `ItemsProvider` (+ `search`), `NotificationsProvider`,
+  `useServerSearch` (debounced, stale-safe), task grouping/time utils, types.
+- Mock data is only an explicit seed (`npm run db:seed -w @kosh/api`) and test
+  fixtures.
+- No AI, voice, auth, push-token registration, recurring reminders, or
+  semantic/vector search yet.
+- Next milestones: **Phase 5 — notes/ideas/learning/links polish** and
+  **Phase 7 — voice capture + push** (see `docs/ROADMAP.md`).
 
 This status section must be updated whenever a milestone completes or the
 architecture changes.
@@ -44,18 +49,30 @@ architecture changes.
 
 - **Monorepo** — npm workspaces: `apps/mobile`, `apps/web`, `apps/api`,
   `packages/shared`.
+- **Data flow:** both clients → shared API client (`@kosh/shared`) → Hono API
+  (`/api/v1/items`) → SQLite. The backend is the source of truth; clients
+  never store data independently.
 - **Mobile:** Expo SDK + React Native + TypeScript. Dark, minimal, text-first.
   8 screens, responsive shell (custom navigation: bottom tabs on mobile,
   sidebar on desktop). Runs on web via React Native Web.
 - **Web:** Vite + React + TypeScript (web-first laptop/desktop client), same
   8 screens, CSS-mirrors the shared design tokens.
-- **API:** Hono on Node 26, TypeScript, run via `tsx`.
-- **DB:** SQLite via Node's built-in `node:sqlite` (`DatabaseSync`). No server,
-  no native deps. Migrations are plain SQL in `apps/api/migrations/`.
+- **API:** Hono on Node 26, TypeScript, run via `tsx` (dev and start). CORS
+  for localhost dev origins. Hand-rolled validation.
+- **DB:** SQLite via Node's built-in `node:sqlite` (`DatabaseSync`). Migrations
+  are plain SQL in `apps/api/migrations/`, applied once and tracked in a
+  `schema_migrations` table. Default DB at `apps/api/data/kosh.db`.
+- **Reminders:** in-process scheduler in `apps/api` (interval
+  `KOSH_REMINDER_INTERVAL_MS`, default 30000) → `NotificationService` →
+  `notifications` table. Exactly-once via `reminded_at`.
+- **Search:** SQLite FTS5 `items_fts` over `title`/`body`/`url`/`tags`,
+  synced by triggers (migration `005`). `GET /api/v1/items?q=…` with bm25
+  ranking, `type`/`status` filters, `limit`/`offset`. Client Search screens
+  use the shared `useServerSearch` hook (debounced ~300 ms).
 - **Shared:** `@kosh/shared` holds the API contract types, design tokens,
-  platform-neutral utilities, mock data and `ItemsProvider` — used by both
-  clients (including `Item.priority` and `Item.tags` — the future backend
-  schema must include them).
+  platform-neutral utilities, the typed API client, mock data (seed/tests
+  only), and the API-backed `ItemsProvider` + `NotificationsProvider` +
+  `useServerSearch`.
 - **No auth** in the MVP, **no AI**, **no voice**, **no ORM**, **no state
   library**, **no UI kit**, **no react-navigation** (custom shells) yet —
   these are deliberate (see `docs/DECISIONS.md`).
@@ -67,28 +84,36 @@ Full detail: `docs/ARCHITECTURE.md` · `docs/PRODUCT.md` · `docs/DECISIONS.md`.
 ```
 apps/
   api/            Hono HTTP API (TypeScript, Node 26)
-    migrations/   SQL migration files, applied in order on startup
+    migrations/   SQL migration files, applied once & tracked (schema_migrations)
     src/
-      index.ts    server bootstrap (open DB → migrate → listen)
-      app.ts      Hono app / route registration
+      index.ts    server bootstrap (open DB → migrate → scheduler → listen)
+      app.ts      Hono app / routes / CORS / error handling
       db.ts       SQLite connection + migration runner
-      routes/     HTTP handlers
-    test/         vitest tests
+      items/      repo.ts (row mapping + CRUD + FTS search) · validation.ts
+                  search.ts (safe FTS query builder)
+      reminders/  scheduler.ts (clock-injected, exactly-once)
+      notifications/ repo.ts
+      routes/     HTTP handlers (health, items, notifications)
+      seed.ts     explicit mock-data seed (npm run db:seed)
+    test/         vitest tests (health, items CRUD, search, reminders, notifications)
   mobile/         Expo app (React Native, TypeScript)
     src/
       components/ shared UI (AppShell, ItemCard, CaptureInput, …)
       screens/     one file per screen (Inbox, Today, Tasks, …)
-      state/       React context (navigation) with mock data
+      notifications/ plan.ts (pure) · schedule.ts (expo-notifications)
+      state/       React context (navigation)
       navigation/  screen names + icons
-    test/         vitest tests for utils
+    test/         vitest tests for utils + reminder plan
   web/            Vite + React app (laptop/desktop, TypeScript)
     src/
-      components/ web UI (Shell, Sidebar, ItemCard, …)
+      components/ web UI (Shell, Sidebar, ItemCard, TaskCreateModal, …)
       screens/     one file per screen (same 8 screens as mobile)
       state/       navigation context
-      test/        vitest + Testing Library interaction tests
+      test/        vitest + Testing Library interaction tests (fetch-mocked)
 packages/
-  shared/         Shared types, design tokens, utils, mock data, ItemsProvider
+  shared/         Types, tokens, utils, mock data (seed/tests only),
+                  typed API client, ItemsProvider, NotificationsProvider,
+                  useServerSearch
 docs/             PRODUCT / ARCHITECTURE / ROADMAP / DECISIONS
 ```
 
@@ -101,12 +126,15 @@ npm install          # install all workspaces (hoisted at root)
 npm run dev:api      # API on http://localhost:3001 (auto-reload)
 npm run dev:mobile   # Expo dev server / Metro (press w for web)
 npm run dev:web      # Web client on http://localhost:3000 (Vite)
+npm run start -w @kosh/api   # run the API (same code as dev, no watch)
+npm run db:seed -w @kosh/api # seed mock items (only when the table is empty)
 ```
 
 Environment (all optional):
 
 - `PORT` — API port (default `3001`).
 - `KOSH_DB_PATH` — SQLite file path (default `apps/api/data/kosh.db`).
+- `KOSH_REMINDER_INTERVAL_MS` — reminder scheduler tick (default `30000`).
 - `EXPO_PUBLIC_API_URL` — API base URL the mobile app calls (default
   `http://localhost:3001`; use the host LAN IP when testing on a real device).
 - `VITE_API_URL` — API base URL the web app calls (default
@@ -117,7 +145,7 @@ Environment (all optional):
 ```
 npm run typecheck    # tsc --noEmit across all workspaces
 npm run lint         # ESLint across all workspaces
-npm test             # vitest (API + mobile utils + web interaction)
+npm test             # vitest (API + shared client + mobile utils + web interaction)
 npm run build        # build API to dist/ + web app to dist/
 ```
 
@@ -148,10 +176,13 @@ without actually running it.**
 - **TypeScript everywhere.** Strict mode is on (`tsconfig.base.json`).
 - **Plain style:** no semicolons, single quotes, ~100-char lines (Prettier).
   Run `npx prettier --write .` to format.
-- **API:** Hono, routes under `/api/v1/*`. Errors are
-  `{ "error": { "message": "…" } }`. ISO-8601 UTC strings for all timestamps.
+- **API:** Hono, routes under `/api/v1/*`. Success responses are
+  `{ "data": … }`; errors are `{ "error": { "message": "…" } }`. ISO-8601 UTC
+  strings for all timestamps; the server generates `id`/`createdAt`/`updatedAt`
+  (never trust the client's).
 - **DB:** use `node:sqlite`. New schema changes = a new numbered SQL file in
-  `apps/api/migrations/` that is idempotent (`IF NOT EXISTS`).
+  `apps/api/migrations/`, applied once and tracked in `schema_migrations`.
+  Prefer additive, non-destructive changes.
 - **Mobile:** plain `StyleSheet` + the shared design-tokens module for the
   dark theme. No UI kit, no state library, no react-navigation (custom
   responsive shell: bottom tabs on mobile, sidebar on desktop).

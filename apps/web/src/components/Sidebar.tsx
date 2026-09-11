@@ -1,12 +1,13 @@
 import type { ScreenName } from '@kosh/shared'
 import { PRIMARY_SECTIONS, SCREEN_TITLES } from '@kosh/shared'
-import { useItems } from '@kosh/shared'
+import { useItems, useNotifications } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Icon, WEB_SCREEN_ICONS } from './Icon'
 
 export function Sidebar() {
   const { screen, navigate, requestCaptureFocus } = useNav()
   const { items } = useItems()
+  const { unreadCount } = useNotifications()
   const inboxCount = items.filter((i) => i.status === 'inbox').length
 
   return (
@@ -41,6 +42,12 @@ export function Sidebar() {
       <nav className="nav-group">
         <NavRow screen="search" active={screen === 'search'} onPress={() => navigate('search')} />
         <NavRow
+          screen="notifications"
+          active={screen === 'notifications'}
+          onPress={() => navigate('notifications')}
+          count={unreadCount > 0 ? unreadCount : undefined}
+        />
+        <NavRow
           screen="settings"
           active={screen === 'settings'}
           onPress={() => navigate('settings')}
@@ -67,7 +74,11 @@ export function NavRow({ screen, active, onPress, count }: NavRowProps) {
     >
       <Icon name={WEB_SCREEN_ICONS[screen]} size={17} />
       {SCREEN_TITLES[screen]}
-      {typeof count === 'number' ? <span className="count">{count}</span> : null}
+      {typeof count === 'number' ? (
+        <span className="count" aria-hidden="true">
+          {count}
+        </span>
+      ) : null}
     </button>
   )
 }

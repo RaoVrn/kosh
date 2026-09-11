@@ -15,5 +15,6 @@ export const SCREEN_ICONS: Record<ScreenName, IconName> = {
   ideas: 'zap',
   learning: 'book-open',
   search: 'search',
+  notifications: 'bell',
   settings: 'settings',
 }

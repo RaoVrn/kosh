@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { ItemDetailModal } from './ItemDetailModal'
+import { Icon } from './Icon'
 import { InboxScreen } from '../screens/InboxScreen'
 import { TodayScreen } from '../screens/TodayScreen'
 import { TasksScreen } from '../screens/TasksScreen'
@@ -10,6 +12,7 @@ import { NotesScreen } from '../screens/NotesScreen'
 import { IdeasScreen } from '../screens/IdeasScreen'
 import { LearningScreen } from '../screens/LearningScreen'
 import { SearchScreen } from '../screens/SearchScreen'
+import { NotificationsScreen } from '../screens/NotificationsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
 
 function useIsCompact(): boolean {
@@ -26,14 +29,36 @@ function useIsCompact(): boolean {
 
 export function Shell() {
   const compact = useIsCompact()
+  const { loading, error, refresh } = useItems()
 
   return (
     <div className="shell">
       {compact ? <TopBar /> : <Sidebar />}
       <main className="main">
-        <ScreenRenderer />
+        {error ? (
+          <div className="error-banner" role="alert">
+            <span className="error-banner-text">{error}</span>
+            <button type="button" className="btn-retry" onClick={() => void refresh()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
+        {loading ? <LoadingState /> : <ScreenRenderer />}
       </main>
       <ItemDetailModal />
+    </div>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="content">
+      <div className="empty">
+        <div className="empty-icon">
+          <Icon name="inbox" size={22} />
+        </div>
+        <h3>Loading…</h3>
+      </div>
     </div>
   )
 }
@@ -55,6 +80,8 @@ function ScreenRenderer() {
       return <LearningScreen />
     case 'search':
       return <SearchScreen />
+    case 'notifications':
+      return <NotificationsScreen />
     case 'settings':
       return <SettingsScreen />
   }

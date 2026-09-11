@@ -1,17 +1,22 @@
 import {
   ITEM_TYPES,
   PRIORITIES,
-  daysFromNow,
+  atTimeOnDay,
+  endOfDayFromNow,
   formatDue,
+  formatDueAt,
   formatFull,
-  formatShortDate,
+  formatReminderAt,
+  fromDatetimeLocalValue,
+  isOverdue,
   isSameDay,
   isToday,
   isTomorrow,
   priorityLabel,
+  toDatetimeLocalValue,
   typeLabel,
+  useItems,
 } from '@kosh/shared'
-import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
@@ -24,6 +29,9 @@ export function ItemDetailModal() {
   if (!item) return null
 
   const done = item.status === 'done'
+  const isTask = item.type === 'task'
+  const reminderConflict =
+    item.dueAt && item.reminderAt && new Date(item.reminderAt) > new Date(item.dueAt)
 
   return (
     <div
@@ -91,7 +99,7 @@ export function ItemDetailModal() {
         </div>
 
         <div className="modal-section">
-          <div className="modal-label">Due date</div>
+          <div className="modal-label">Due</div>
           <div className="chip-row">
             <Chip
               label="None"
@@ -101,27 +109,96 @@ export function ItemDetailModal() {
             <Chip
               label="Today"
               active={item.dueAt ? isToday(item.dueAt) : false}
-              onPress={() => updateItem(item.id, { dueAt: daysFromNow(0) })}
+              onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(0) })}
             />
             <Chip
               label="Tomorrow"
               active={item.dueAt ? isTomorrow(item.dueAt) : false}
-              onPress={() => updateItem(item.id, { dueAt: daysFromNow(1) })}
+              onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(1) })}
             />
             <Chip
               label="In a week"
               active={
-                item.dueAt ? isSameDay(new Date(item.dueAt), new Date(daysFromNow(7))) : false
+                item.dueAt ? isSameDay(new Date(item.dueAt), new Date(endOfDayFromNow(7))) : false
               }
-              onPress={() => updateItem(item.id, { dueAt: daysFromNow(7) })}
+              onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(7) })}
             />
           </div>
+          <input
+            type="datetime-local"
+            className="datetime-input"
+            value={item.dueAt ? toDatetimeLocalValue(item.dueAt) : ''}
+            onChange={(e) =>
+              updateItem(item.id, {
+                dueAt: e.target.value ? fromDatetimeLocalValue(e.target.value) : null,
+              })
+            }
+            aria-label="Due date and time"
+          />
           {item.dueAt ? (
             <p className="modal-meta">
-              Due {formatDue(item.dueAt)} · {formatShortDate(item.dueAt)}
+              Due {formatDue(item.dueAt)} · {formatDueAt(item.dueAt)}
+              {isOverdue(item.dueAt) && !done ? ' · overdue' : ''}
             </p>
           ) : null}
         </div>
+
+        {isTask ? (
+          <div className="modal-section">
+            <div className="modal-label">Reminder</div>
+            <div className="chip-row">
+              <Chip
+                label="None"
+                active={!item.reminderAt}
+                onPress={() => updateItem(item.id, { reminderAt: null })}
+              />
+              <Chip
+                label="In 1 hour"
+                active={false}
+                onPress={() =>
+                  updateItem(item.id, {
+                    reminderAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                  })
+                }
+              />
+              <Chip
+                label="Today 9 AM"
+                active={
+                  item.reminderAt
+                    ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(0, 9, 0)))
+                    : false
+                }
+                onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(0, 9, 0) })}
+              />
+              <Chip
+                label="Tomorrow 9 AM"
+                active={
+                  item.reminderAt
+                    ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(1, 9, 0)))
+                    : false
+                }
+                onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(1, 9, 0) })}
+              />
+            </div>
+            <input
+              type="datetime-local"
+              className="datetime-input"
+              value={item.reminderAt ? toDatetimeLocalValue(item.reminderAt) : ''}
+              onChange={(e) =>
+                updateItem(item.id, {
+                  reminderAt: e.target.value ? fromDatetimeLocalValue(e.target.value) : null,
+                })
+              }
+              aria-label="Reminder date and time"
+            />
+            {item.reminderAt ? (
+              <p className="modal-meta">Reminder {formatReminderAt(item.reminderAt)}</p>
+            ) : null}
+            {reminderConflict ? (
+              <p className="modal-meta warning">Reminder must not be after the due time.</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <p className="modal-meta">Created {formatFull(item.createdAt)}</p>
         {item.doneAt ? <p className="modal-meta">Completed {formatFull(item.doneAt)}</p> : null}

@@ -181,6 +181,171 @@ whenever an important technical or product decision is made.
 - **Note:** this makes `@kosh/shared` a React library (it declares `react` as a
   peer dependency). API-facing types remain there too.
 
+### D15 — Items schema & server-owned timestamps
+
+- **Status:** Accepted (persistent data)
+- **Decision:** One `items` table with `snake_case` columns mirroring the
+  shared `Item` model. `tags` is a JSON string column (no normalized tag
+  tables). The server always sets `id`, `created_at`, `updated_at`, and
+  `done_at`; clients never send timestamps or ids.
+- **Status values** stay `inbox · active · done · archived` (not the prompt's
+  `pending/completed`) — they already match the shared model, the UI, and the
+  mock data. `done_at` is derived server-side: PATCHing status to `done` sets
+  it, any other status clears it.
+- **Why:** one canonical representation across project (AGENTS.md contract),
+  additive schema, no client-generated timestamps to trust.
+
+### D16 — API conventions
+
+- **Status:** Accepted (persistent data)
+- **Decision:** Item endpoints return `{ "data": … }` (array for lists);
+  errors are `{ "error": { "message": "…" } }`. Hard DELETE (`204`, then
+  `404` on a missing id). Hand-rolled validation in
+  `apps/api/src/items/validation.ts` (enums, required title, max lengths,
+  ISO-date checks, id sanity) instead of a validation framework.
+- **Why:** consistent client/server contract, tiny API surface, and a
+  lightweight validator is all the model needs (no framework dependency).
+
+### D17 — Migration runner tracks applied migrations
+
+- **Status:** Accepted (persistent data)
+- **Decision:** The migration runner now records applied files in a
+  `schema_migrations` table and applies only pending ones, each inside a
+  transaction. Migration `002` adds `priority`/`tags` via additive
+  `ALTER TABLE` (non-destructive).
+- **Why:** the old runner re-ran every SQL file on each start (safe only with
+  `IF NOT EXISTS` everywhere); `ALTER TABLE ADD COLUMN` can't be idempotent,
+  and destructive recreation is unacceptable. Tracking keeps existing data
+  safe across restarts (see prompt §18).
+
+### D18 — Shared typed API client + API-backed ItemsProvider
+
+- **Status:** Accepted (persistent data)
+- **Decision:** `@kosh/shared` exposes `createItemsApi(baseUrl)` — the single
+  typed HTTP boundary (`getItems/getItem/createItem/updateItem/deleteItem`)
+  used by both clients. The shared `ItemsProvider` is API-backed: it exposes
+  `items / loading / error / refresh / addItem / updateItem / toggleDone /
+removeItem`, updates state only from server responses (no optimistic
+  pretend-success), and surfaces failures via an `error` state (plus rethrowing
+  on `addItem` so the capture input can preserve text).
+- **Why:** one API client, one state implementation, one seam — web and mobile
+  can't diverge, and the provider accepts an injected client for tests.
+- **Note:** mutations set the shared `error` state (shown as a banner with a
+  Retry); `addItem` additionally rethrows so screens keep failed input.
+
+### D19 — Environment configuration & CORS
+
+- **Status:** Accepted (persistent data)
+- **Decision:** API base URLs are env-driven per client:
+  `VITE_API_URL` (web, default `http://localhost:3001`) and
+  `EXPO_PUBLIC_API_URL` (mobile, default `http://localhost:3001`; set to
+  `http://<mac-lan-ip>:3001` for physical-device testing). The API enables
+  CORS only for `localhost`/`127.0.0.1` origins (Hono `cors`), covering the
+  web client `:3000` and Expo web `:8081`.
+- **Why:** no hard-coded production URLs; phone `localhost` means the phone,
+  so the mobile URL must be configurable; localhost-only CORS is safer than a
+  wildcard for a personal tool.
+
+### D20 — API runs via `tsx` in dev and production
+
+- **Status:** Accepted (persistent data)
+- **Decision:** `apps/api` runs from TypeScript source with `tsx`
+  (`npm run dev` = watch, `npm run start` = run). `npm run build` still
+  type-checks and emits `dist/` as a verification artifact.
+- **Why:** `@kosh/shared` ships as TypeScript source (also consumed by
+  Metro/Vite), which plain `node` cannot load from the compiled API output.
+  `tsx` runs the same code in dev and prod, avoiding a shared-package build
+  step; it is declared in the API's dependencies so a production install has
+  it.
+
+### D21 — One reminder per task; `reminded_at` for once-only processing
+
+- **Status:** Accepted (tasks/reminders)
+- **Decision:** MVP supports a single `reminder_at` per task. `reminded_at`
+  (migration `003`) records the processing time; the scheduler claims reminders
+  atomically (`UPDATE … WHERE reminded_at IS NULL` + row-count check) so a
+  reminder can never produce more than one notification, including across API
+  restarts. Changing `reminder_at` clears `reminded_at` (re-arms); completing
+  or archiving a task makes it ineligible.
+- **Why:** minimal persistence, exactly-once semantics without a queue.
+
+### D22 — Reminder rules
+
+- **Status:** Accepted (tasks/reminders)
+- **Decision:** `reminderAt` is only valid on tasks; `reminderAt` must not be
+  after `dueAt` (both are ISO-8601). A past reminder is allowed and simply
+  fires on the next scheduler tick (documented, predictable behavior).
+- **Why:** "only tasks have task-specific reminder behavior" per scope, and a
+  useful 400 for the reminder-after-due case; past reminders are treated as
+  "remind me now".
+
+### D23 — Scheduler as an in-process loop with an injectable clock
+
+- **Status:** Accepted (tasks/reminders)
+- **Decision:** `apps/api` runs a `setInterval` (default 30 s, configurable via
+  `KOSH_REMINDER_INTERVAL_MS`) that calls
+  `processDueReminders(db, clock, notifier)`. The clock and notification
+  service are injected so tests simulate 09:59/10:00/10:01 without waiting.
+  The loop starts with the API and is cleared on SIGINT/SIGTERM. No Redis,
+  queues, or external infrastructure.
+- **Why:** testable, no new infrastructure, honest MVP.
+
+### D24 — NotificationService abstraction + persisted in-app notifications
+
+- **Status:** Accepted (tasks/reminders)
+- **Decision:** The scheduler depends on `NotificationService.deliver(db,
+item)`. The MVP implementation persists a row in the `notifications` table
+  (migration `004`: `id, item_id, type, title, body, created_at, read_at`),
+  exposed via `GET`/`PATCH /api/v1/notifications`. Mobile push / web push /
+  email are future implementations of the same interface.
+- **Why:** the scheduler never knows the delivery channel; in-app notifications
+  are the reliable MVP channel.
+
+### D25 — Mobile local notifications derived from API data
+
+- **Status:** Accepted (tasks/reminders)
+- **Decision:** The mobile app schedules **local** notifications on-device
+  (`expo-notifications`) but the plan is derived from the persisted API item
+  list (`planTaskReminders` → `syncTaskReminderNotifications`), and re-synced
+  whenever items change. There is no mobile-only task store. Delivery can only
+  be verified on a real device/dev build; Expo Go limitations are documented.
+  Web push (service worker) is deferred.
+
+### D26 — SQLite FTS5 is the search engine
+
+- **Status:** Accepted (search)
+- **Decision:** Search is implemented entirely with SQLite FTS5 (migration
+  `005`): a virtual `items_fts` table (external-content mode over `title`,
+  `body`, `url`, `tags`), ordered by `bm25`. **Why FTS5:** Kosh is a
+  single-user, local-first application; FTS5 gives fast, ranked full-text
+  search inside the existing SQLite database with **no additional
+  infrastructure** — no Elasticsearch/Meilisearch/Typesense/vector DB.
+  Embeddings/semantic retrieval are explicitly future work.
+
+### D27 — Search index synchronization via triggers
+
+- **Status:** Accepted (search)
+- **Decision:** `items_fts` is kept in sync automatically by SQLite triggers
+  (`items_fts_ai/ad/au` on INSERT/DELETE/UPDATE), so every mutation path
+  (POST/PATCH/DELETE) updates the index atomically within the same statement —
+  no application-level sync that could silently drift. The migration ends with
+  an FTS5 `rebuild`, backfilling **existing** items into the index without
+  touching the `items` table.
+- **Why:** correctness and zero application bookkeeping; SQLite guarantees the
+  trigger runs in the same transaction as the write.
+
+### D28 — Safe FTS query normalization + pagination
+
+- **Status:** Accepted (search)
+- **Decision:** User queries are normalized into quoted alphanumeric tokens
+  joined with `AND` (single-char/symbol-only input yields empty results, never
+  a 500), and the MATCH expression is always a bound parameter — no raw SQL
+  interpolation. `?q=` accepts `limit`/`offset` (search default 50, list
+  default 1000, max 1000) so the API never returns unbounded result sets.
+- **Why:** injection-safe and crash-free for arbitrary user text
+  (`C++`, `Rahul's`, `-`, `:`…), with predictable (not perfect-recall) results.
+  Cursor pagination deferred — offset pagination is sufficient for the MVP.
+
 ## Product decisions
 
 ### P1 — No category selection at capture time

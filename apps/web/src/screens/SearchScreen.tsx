@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react'
-import { searchItems } from '@kosh/shared'
-import { useItems } from '@kosh/shared'
+import { ITEM_TYPES, typeLabel, useItems, useServerSearch } from '@kosh/shared'
+import type { SearchTypeFilter } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
@@ -8,16 +7,48 @@ import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/Icon'
 
-export function SearchScreen() {
-  const { items, toggleDone } = useItems()
-  const { openItem } = useNav()
-  const [query, setQuery] = useState('')
+const FILTERS: SearchTypeFilter[] = ['all', ...ITEM_TYPES]
 
-  const results = useMemo(() => searchItems(items, query), [items, query])
+export function SearchScreen() {
+  const { toggleDone } = useItems()
+  const { openItem } = useNav()
+  const {
+    query,
+    setQuery,
+    filter,
+    setFilter,
+    results,
+    loading,
+    error,
+    searched,
+    clear,
+    patchResult,
+  } = useServerSearch()
+
+  const handleToggleDone = (id: string) => {
+    const current = results.find((i) => i.id === id)
+    if (!current) return
+    const next = current.status === 'done' ? 'active' : 'done'
+    patchResult(id, {
+      status: next,
+      doneAt: next === 'done' ? new Date().toISOString() : null,
+    })
+    void toggleDone(id)
+  }
 
   return (
     <Content>
-      <PageHeader title="Search" subtitle="Find anything you've captured." />
+      <PageHeader
+        title="Search"
+        subtitle="Find anything you've captured."
+        right={
+          results.length > 0 && !loading ? (
+            <span className="card-time">
+              {results.length} result{results.length === 1 ? '' : 's'}
+            </span>
+          ) : null
+        }
+      />
 
       <div className="search-bar">
         <Icon name="search" size={18} color="var(--text-faint)" />
@@ -29,24 +60,41 @@ export function SearchScreen() {
           autoFocus
         />
         {query.length > 0 ? (
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => setQuery('')}
-            aria-label="Clear search"
-          >
+          <button type="button" className="icon-btn" onClick={clear} aria-label="Clear search">
             <Icon name="x" size={18} />
           </button>
         ) : null}
       </div>
 
+      <div className="chip-row" style={{ marginBottom: 16 }}>
+        {FILTERS.map((f) => {
+          const active = filter === f
+          const label = f === 'all' ? 'All' : typeLabel[f]
+          return (
+            <button
+              key={f}
+              type="button"
+              className={`chip${active ? ' active' : ''}`}
+              onClick={() => setFilter(f)}
+              aria-label={`Filter by ${label}`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
       {query.trim() === '' ? (
         <EmptyState
           icon="search"
-          title="Search everything"
-          message="Find tasks, notes, ideas, learning items and links."
+          title="Search Kosh"
+          message="Search your tasks, notes, ideas, and everything you've captured."
         />
-      ) : results.length === 0 ? (
+      ) : error ? (
+        <EmptyState icon="search" title="Search failed" message={error} />
+      ) : loading && results.length === 0 ? (
+        <EmptyState icon="search" title="Searching…" message="" />
+      ) : searched && results.length === 0 ? (
         <EmptyState
           icon="search"
           title="No results"
@@ -58,7 +106,7 @@ export function SearchScreen() {
             key={result.id}
             item={result}
             onPress={() => openItem(result.id)}
-            onToggleDone={result.type === 'task' ? () => toggleDone(result.id) : undefined}
+            onToggleDone={result.type === 'task' ? () => handleToggleDone(result.id) : undefined}
           />
         ))
       )}

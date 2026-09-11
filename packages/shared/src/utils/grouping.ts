@@ -1,43 +1,74 @@
 import type { Item } from '../index'
-import { isDueToday, isOverdue } from './time'
+import { isOverdue, isToday } from './time'
 
-export interface TodayGroup {
-  key: 'overdue' | 'important' | 'today' | 'upcoming'
+export interface TaskGroup {
+  key: 'overdue' | 'today' | 'upcoming' | 'completed'
   title: string
   items: Item[]
 }
 
-function byDueAt(a: Item, b: Item): number {
+export interface TaskGroups {
+  overdue: Item[]
+  today: Item[]
+  upcoming: Item[]
+  nodue: Item[]
+  completed: Item[]
+}
+
+const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
+
+export function byDueAt(a: Item, b: Item): number {
   if (!a.dueAt) return 1
   if (!b.dueAt) return -1
   return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
 }
 
-export function getTodayGroups(items: Item[], ref: Date = new Date()): TodayGroup[] {
-  const pending = items.filter((i) => i.type === 'task' && i.status !== 'done')
-  const seen = new Set<string>()
+export function compareTasks(a: Item, b: Item): number {
+  const pa = PRIORITY_ORDER[a.priority ?? 'low'] ?? 2
+  const pb = PRIORITY_ORDER[b.priority ?? 'low'] ?? 2
+  if (pa !== pb) return pa - pb
+  return byDueAt(a, b)
+}
 
-  const overdue = pending.filter((i) => i.dueAt && isOverdue(i.dueAt, ref)).sort(byDueAt)
-  overdue.forEach((i) => seen.add(i.id))
+export function isPendingTask(item: Item): boolean {
+  return item.type === 'task' && item.status !== 'done'
+}
 
-  const important = pending.filter((i) => i.priority === 'high' && !seen.has(i.id)).sort(byDueAt)
-  important.forEach((i) => seen.add(i.id))
+export function getTaskGroups(items: Item[], ref: Date = new Date()): TaskGroups {
+  const pending = items.filter(isPendingTask)
+
+  const overdue = pending.filter((i) => i.dueAt && isOverdue(i.dueAt, ref)).sort(compareTasks)
 
   const today = pending
-    .filter((i) => i.dueAt && isDueToday(i.dueAt, ref) && !seen.has(i.id))
-    .sort(byDueAt)
-  today.forEach((i) => seen.add(i.id))
+    .filter((i) => i.dueAt && isToday(i.dueAt, ref) && !isOverdue(i.dueAt, ref))
+    .sort(compareTasks)
 
   const upcoming = pending
-    .filter((i) => i.dueAt && !seen.has(i.id) && !isOverdue(i.dueAt, ref))
+    .filter((i) => i.dueAt && !isToday(i.dueAt, ref) && !isOverdue(i.dueAt, ref))
     .sort(byDueAt)
-    .slice(0, 4)
+    .slice(0, 8)
 
-  const groups: TodayGroup[] = []
+  const nodue = pending.filter((i) => !i.dueAt).sort(compareTasks)
+
+  const completed = items
+    .filter((i) => i.type === 'task' && i.status === 'done')
+    .sort((a, b) => (b.doneAt ?? b.updatedAt).localeCompare(a.doneAt ?? a.updatedAt))
+
+  return { overdue, today, upcoming, nodue, completed }
+}
+
+export function getTodayGroups(items: Item[], ref: Date = new Date()): TaskGroup[] {
+  const { overdue, today, upcoming } = getTaskGroups(items, ref)
+  const completedToday = items
+    .filter((i) => i.type === 'task' && i.status === 'done' && i.doneAt && isToday(i.doneAt, ref))
+    .sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''))
+
+  const groups: TaskGroup[] = []
   if (overdue.length) groups.push({ key: 'overdue', title: 'Overdue', items: overdue })
-  if (important.length) groups.push({ key: 'important', title: 'Important', items: important })
   if (today.length) groups.push({ key: 'today', title: 'Today', items: today })
   if (upcoming.length) groups.push({ key: 'upcoming', title: 'Upcoming', items: upcoming })
+  if (completedToday.length)
+    groups.push({ key: 'completed', title: 'Completed', items: completedToday })
   return groups
 }
 

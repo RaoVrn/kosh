@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Item } from '@kosh/shared'
 import { colors, priorityColors, radius, spacing } from '../theme'
 import { priorityLabel } from '@kosh/shared'
-import { formatDue, isOverdue } from '@kosh/shared'
+import { formatDueAt, formatReminderAt, isOverdue } from '@kosh/shared'
 import { Badge } from './Badge'
 import { Icon } from './Icon'
 
@@ -43,10 +43,15 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
             <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
           ) : null}
           {item.dueAt ? (
-            <Badge
-              label={formatDue(item.dueAt)}
-              color={overdue ? colors.danger : colors.textMuted}
-            />
+            <Text style={[styles.dueChip, overdue && styles.dueOverdue]}>
+              {formatDueAt(item.dueAt)}
+            </Text>
+          ) : null}
+          {item.reminderAt && !done ? (
+            <View style={styles.reminderChip}>
+              <Icon name="bell" size={11} color={colors.accent} />
+              <Text style={styles.reminderText}>{formatReminderAt(item.reminderAt)}</Text>
+            </View>
           ) : null}
         </View>
       </View>
@@ -99,7 +104,36 @@ const styles = StyleSheet.create({
   meta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginTop: 6,
+  },
+  dueChip: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    backgroundColor: 'rgba(154, 154, 165, 0.14)',
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  dueOverdue: {
+    color: colors.danger,
+    backgroundColor: 'rgba(255, 107, 94, 0.14)',
+  },
+  reminderChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.accentMuted,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  reminderText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '600',
   },
 })

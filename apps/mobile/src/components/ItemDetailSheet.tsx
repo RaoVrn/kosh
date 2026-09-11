@@ -14,10 +14,12 @@ import { ITEM_TYPES, PRIORITIES } from '@kosh/shared'
 import { colors, layout, radius, spacing, typeColors } from '../theme'
 import { priorityLabel, typeLabel } from '@kosh/shared'
 import {
-  daysFromNow,
+  atTimeOnDay,
+  endOfDayFromNow,
   formatDue,
+  formatDueAt,
   formatFull,
-  formatShortDate,
+  formatReminderAt,
   isSameDay,
   isToday,
   isTomorrow,
@@ -127,7 +129,7 @@ export function ItemDetailSheet() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Due date</Text>
+              <Text style={styles.sectionLabel}>Due</Text>
               <View style={styles.chipRow}>
                 <Chip
                   label="None"
@@ -137,27 +139,79 @@ export function ItemDetailSheet() {
                 <Chip
                   label="Today"
                   active={item.dueAt ? isToday(item.dueAt) : false}
-                  onPress={() => updateItem(item.id, { dueAt: daysFromNow(0) })}
+                  onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(0) })}
                 />
                 <Chip
                   label="Tomorrow"
                   active={item.dueAt ? isTomorrow(item.dueAt) : false}
-                  onPress={() => updateItem(item.id, { dueAt: daysFromNow(1) })}
+                  onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(1) })}
                 />
                 <Chip
                   label="In a week"
                   active={
-                    item.dueAt ? isSameDay(new Date(item.dueAt), new Date(daysFromNow(7))) : false
+                    item.dueAt
+                      ? isSameDay(new Date(item.dueAt), new Date(endOfDayFromNow(7)))
+                      : false
                   }
-                  onPress={() => updateItem(item.id, { dueAt: daysFromNow(7) })}
+                  onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(7) })}
                 />
               </View>
               {item.dueAt ? (
                 <Text style={styles.meta}>
-                  Due {formatDue(item.dueAt)} · {formatShortDate(item.dueAt)}
+                  Due {formatDue(item.dueAt)} · {formatDueAt(item.dueAt)}
                 </Text>
               ) : null}
             </View>
+
+            {item.type === 'task' ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Reminder</Text>
+                <View style={styles.chipRow}>
+                  <Chip
+                    label="None"
+                    active={!item.reminderAt}
+                    onPress={() => updateItem(item.id, { reminderAt: null })}
+                  />
+                  <Chip
+                    label="In 1 hour"
+                    active={false}
+                    onPress={() =>
+                      updateItem(item.id, {
+                        reminderAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                      })
+                    }
+                  />
+                  <Chip
+                    label="Today 9 AM"
+                    active={
+                      item.reminderAt
+                        ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(0, 9, 0)))
+                        : false
+                    }
+                    onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(0, 9, 0) })}
+                  />
+                  <Chip
+                    label="Tomorrow 9 AM"
+                    active={
+                      item.reminderAt
+                        ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(1, 9, 0)))
+                        : false
+                    }
+                    onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(1, 9, 0) })}
+                  />
+                </View>
+                {item.reminderAt ? (
+                  <Text style={styles.meta}>Reminder {formatReminderAt(item.reminderAt)}</Text>
+                ) : null}
+                {item.dueAt &&
+                item.reminderAt &&
+                new Date(item.reminderAt) > new Date(item.dueAt) ? (
+                  <Text style={[styles.meta, styles.warning]}>
+                    Reminder must not be after the due time.
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
 
             <Text style={styles.meta}>Created {formatFull(item.createdAt)}</Text>
             {item.doneAt ? (
@@ -307,6 +361,9 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     fontSize: 12,
     marginTop: spacing.sm,
+  },
+  warning: {
+    color: colors.warning,
   },
   actions: {
     marginTop: spacing.xl,

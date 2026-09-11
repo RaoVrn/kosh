@@ -1,21 +1,42 @@
-import { useMemo, useState } from 'react'
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ITEM_TYPES, typeLabel, useItems, useServerSearch } from '@kosh/shared'
+import type { SearchTypeFilter } from '@kosh/shared'
 import { colors, radius, spacing } from '../theme'
-import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 import { Icon } from '../components/Icon'
-import { searchItems } from '@kosh/shared'
+
+const FILTERS: SearchTypeFilter[] = ['all', ...ITEM_TYPES]
 
 export function SearchScreen() {
-  const { items, toggleDone } = useItems()
+  const { toggleDone } = useItems()
   const { openItem } = useNav()
-  const [query, setQuery] = useState('')
+  const {
+    query,
+    setQuery,
+    filter,
+    setFilter,
+    results,
+    loading,
+    error,
+    searched,
+    clear,
+    patchResult,
+  } = useServerSearch()
 
-  const results = useMemo(() => searchItems(items, query), [items, query])
+  const handleToggleDone = (id: string) => {
+    const current = results.find((i) => i.id === id)
+    if (!current) return
+    const next = current.status === 'done' ? 'active' : 'done'
+    patchResult(id, {
+      status: next,
+      doneAt: next === 'done' ? new Date().toISOString() : null,
+    })
+    void toggleDone(id)
+  }
 
   return (
     <Content>
@@ -34,7 +55,7 @@ export function SearchScreen() {
         />
         {query.length > 0 ? (
           <Pressable
-            onPress={() => setQuery('')}
+            onPress={clear}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Clear search"
@@ -45,13 +66,41 @@ export function SearchScreen() {
         ) : null}
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filters}
+        contentContainerStyle={styles.filtersInner}
+      >
+        {FILTERS.map((f) => {
+          const active = filter === f
+          const label = f === 'all' ? 'All' : typeLabel[f]
+          return (
+            <Pressable
+              key={f}
+              onPress={() => setFilter(f)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Filter by ${label}`}
+              style={[styles.filter, active && styles.filterActive]}
+            >
+              <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
+            </Pressable>
+          )
+        })}
+      </ScrollView>
+
       {query.trim() === '' ? (
         <EmptyState
           icon="search"
-          title="Search everything"
-          message="Find tasks, notes, ideas, learning items and links."
+          title="Search Kosh"
+          message="Search your tasks, notes, ideas, and everything you've captured."
         />
-      ) : results.length === 0 ? (
+      ) : error ? (
+        <EmptyState icon="search" title="Search failed" message={error} />
+      ) : loading && results.length === 0 ? (
+        <EmptyState icon="search" title="Searching…" message="" />
+      ) : searched && results.length === 0 ? (
         <EmptyState
           icon="search"
           title="No results"
@@ -63,7 +112,7 @@ export function SearchScreen() {
             key={result.id}
             item={result}
             onPress={() => openItem(result.id)}
-            onToggleDone={result.type === 'task' ? () => toggleDone(result.id) : undefined}
+            onToggleDone={result.type === 'task' ? () => handleToggleDone(result.id) : undefined}
           />
         ))
       )}
@@ -81,7 +130,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   searchInput: {
     flex: 1,
@@ -91,5 +140,33 @@ const styles = StyleSheet.create({
   },
   clear: {
     padding: 4,
+  },
+  filters: {
+    flexGrow: 0,
+    marginBottom: spacing.lg,
+  },
+  filtersInner: {
+    gap: spacing.sm,
+  },
+  filter: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  filterActive: {
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
+  },
+  filterText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  filterTextActive: {
+    color: colors.accent,
+    fontWeight: '600',
   },
 })

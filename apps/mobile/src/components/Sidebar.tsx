@@ -51,6 +51,11 @@ export function Sidebar() {
           onPress={() => navigate('search')}
         />
         <SidebarRow
+          screen="notifications"
+          active={screen === 'notifications'}
+          onPress={() => navigate('notifications')}
+        />
+        <SidebarRow
           screen="settings"
           active={screen === 'settings'}
           onPress={() => navigate('settings')}

@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 
 interface CaptureInputProps {
   innerRef?: React.RefObject<HTMLInputElement | null>
-  onSubmit: (text: string) => void
+  onSubmit: (text: string) => boolean | Promise<boolean>
   onMicPress?: () => void
   placeholder?: string
 }
@@ -19,11 +19,11 @@ export function CaptureInput({
   const inputRef = innerRef ?? fallbackRef
   const canSubmit = text.trim().length > 0
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const value = text.trim()
     if (!value) return
-    onSubmit(value)
-    setText('')
+    const ok = await onSubmit(value)
+    if (ok) setText('')
   }
 
   return (

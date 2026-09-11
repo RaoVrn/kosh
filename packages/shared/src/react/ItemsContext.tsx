@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Item, ItemType, Priority, ItemStatus } from '../index'
-import { createMockItems } from '../mockData'
-import { uid } from '../utils/id'
+import { errorMessage } from '../api/itemsApi'
+import { createItemsApi, DEFAULT_API_BASE_URL } from '../api/itemsApi'
+import type { ItemsApiClient } from '../api/itemsApi'
 
 export interface ItemPatch {
   title?: string
@@ -12,71 +13,165 @@ export interface ItemPatch {
   status?: ItemStatus
   priority?: Priority | null
   dueAt?: string | null
+  reminderAt?: string | null
   tags?: string[]
+}
+
+export interface ItemInput {
+  title: string
+  body?: string
+  url?: string
+  type?: ItemType
+  priority?: Priority | null
+  dueAt?: string | null
+  reminderAt?: string | null
+  tags?: string[] | null
+}
+
+export interface SearchQuery {
+  q: string
+  type?: ItemType
+  status?: ItemStatus
 }
 
 interface ItemsContextValue {
   items: Item[]
+  loading: boolean
+  error: string | null
+  refresh: () => Promise<void>
   getItem: (id: string) => Item | undefined
-  addItem: (input: { title: string; body?: string; url?: string }) => Item
-  updateItem: (id: string, patch: ItemPatch) => void
-  toggleDone: (id: string) => void
-  removeItem: (id: string) => void
+  addItem: (input: ItemInput) => Promise<Item>
+  updateItem: (id: string, patch: ItemPatch) => Promise<void>
+  toggleDone: (id: string) => Promise<void>
+  removeItem: (id: string) => Promise<void>
+  search: (params: SearchQuery) => Promise<Item[]>
+}
+
+interface ItemsProviderProps {
+  children: ReactNode
+  baseUrl?: string
+  api?: ItemsApiClient
 }
 
 const ItemsContext = createContext<ItemsContextValue | null>(null)
 
-export function ItemsProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<Item[]>(() => createMockItems())
+export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
+  const client = useMemo(
+    () => api ?? createItemsApi(baseUrl ?? DEFAULT_API_BASE_URL),
+    [api, baseUrl],
+  )
+
+  const [items, setItems] = useState<Item[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setError(null)
+    setLoading(true)
+    try {
+      const list = await client.getItems()
+      setItems(list)
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to load items'))
+    } finally {
+      setLoading(false)
+    }
+  }, [client])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
   const getItem = useCallback((id: string) => items.find((i) => i.id === id), [items])
 
-  const addItem = useCallback((input: { title: string; body?: string; url?: string }) => {
-    const now = new Date().toISOString()
-    const item: Item = {
-      id: uid(),
-      type: 'note',
-      status: 'inbox',
-      title: input.title.trim(),
-      body: input.body,
-      url: input.url,
-      priority: null,
-      tags: [],
-      createdAt: now,
-      updatedAt: now,
-    }
-    setItems((prev) => [item, ...prev])
-    return item
-  }, [])
+  const addItem = useCallback(
+    async (input: ItemInput) => {
+      setError(null)
+      try {
+        const item = await client.createItem({
+          title: input.title.trim(),
+          body: input.body,
+          url: input.url,
+          type: input.type ?? 'note',
+          status: 'inbox',
+          priority: input.priority ?? null,
+          dueAt: input.dueAt ?? null,
+          reminderAt: input.reminderAt ?? null,
+          tags: input.tags ?? null,
+        })
+        setItems((prev) => [item, ...prev.filter((i) => i.id !== item.id)])
+        return item
+      } catch (err) {
+        setError(errorMessage(err, 'Could not add the item'))
+        throw err
+      }
+    },
+    [client],
+  )
 
-  const updateItem = useCallback((id: string, patch: ItemPatch) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: new Date().toISOString() } : i)),
-    )
-  }, [])
+  const updateItem = useCallback(
+    async (id: string, patch: ItemPatch) => {
+      setError(null)
+      try {
+        const item = await client.updateItem(id, patch)
+        setItems((prev) => prev.map((i) => (i.id === id ? item : i)))
+      } catch (err) {
+        setError(errorMessage(err, 'Could not update the item'))
+      }
+    },
+    [client],
+  )
 
-  const toggleDone = useCallback((id: string) => {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (i.id !== id) return i
-        const done = i.status === 'done'
-        return {
-          ...i,
-          status: done ? 'active' : 'done',
-          doneAt: done ? null : new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      }),
-    )
-  }, [])
+  const toggleDone = useCallback(
+    async (id: string) => {
+      const current = items.find((i) => i.id === id)
+      if (!current) return
+      const next = current.status === 'done' ? 'active' : 'done'
+      setError(null)
+      try {
+        const item = await client.updateItem(id, { status: next })
+        setItems((prev) => prev.map((i) => (i.id === id ? item : i)))
+      } catch (err) {
+        setError(errorMessage(err, 'Could not update the task'))
+      }
+    },
+    [client, items],
+  )
 
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id))
-  }, [])
+  const removeItem = useCallback(
+    async (id: string) => {
+      setError(null)
+      try {
+        await client.deleteItem(id)
+        setItems((prev) => prev.filter((i) => i.id !== id))
+      } catch (err) {
+        setError(errorMessage(err, 'Could not delete the item'))
+      }
+    },
+    [client],
+  )
+
+  const search = useCallback(
+    async (params: SearchQuery) => {
+      return client.getItems({ q: params.q, type: params.type, status: params.status })
+    },
+    [client],
+  )
 
   const value = useMemo(
-    () => ({ items, getItem, addItem, updateItem, toggleDone, removeItem }),
-    [items, getItem, addItem, updateItem, toggleDone, removeItem],
+    () => ({
+      items,
+      loading,
+      error,
+      refresh,
+      getItem,
+      addItem,
+      updateItem,
+      toggleDone,
+      removeItem,
+      search,
+    }),
+    [items, loading, error, refresh, getItem, addItem, updateItem, toggleDone, removeItem, search],
   )
 
   return <ItemsContext.Provider value={value}>{children}</ItemsContext.Provider>

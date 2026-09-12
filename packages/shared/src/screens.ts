@@ -5,6 +5,7 @@ export const SCREEN_NAMES = [
   'notes',
   'ideas',
   'learning',
+  'links',
   'search',
   'notifications',
   'settings',
@@ -21,6 +22,7 @@ export const PRIMARY_SECTIONS: readonly PrimarySection[] = [
   'notes',
   'ideas',
   'learning',
+  'links',
 ]
 
 export const SCREEN_TITLES: Record<ScreenName, string> = {
@@ -30,6 +32,7 @@ export const SCREEN_TITLES: Record<ScreenName, string> = {
   notes: 'Notes',
   ideas: 'Ideas',
   learning: 'Learning',
+  links: 'Links',
   search: 'Search',
   notifications: 'Notifications',
   settings: 'Settings',

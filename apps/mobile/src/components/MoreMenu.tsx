@@ -8,6 +8,7 @@ const MORE_ITEMS: { screen: ScreenName; icon: IconName; title: string }[] = [
   { screen: 'notes', icon: 'file-text', title: 'Notes' },
   { screen: 'ideas', icon: 'zap', title: 'Ideas' },
   { screen: 'learning', icon: 'book-open', title: 'Learning' },
+  { screen: 'links', icon: 'link', title: 'Links' },
   { screen: 'notifications', icon: 'bell', title: 'Notifications' },
   { screen: 'settings', icon: 'settings', title: 'Settings' },
 ]

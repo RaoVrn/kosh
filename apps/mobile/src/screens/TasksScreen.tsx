@@ -9,7 +9,7 @@ import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { TaskItem } from '../components/TaskItem'
 import { EmptyState } from '../components/EmptyState'
-import { TaskCreateSheet } from '../components/TaskCreateSheet'
+import { ItemCreateSheet } from '../components/ItemCreateSheet'
 import { Icon } from '../components/Icon'
 
 export function TasksScreen() {
@@ -76,7 +76,7 @@ export function TasksScreen() {
         )
       )}
 
-      {creating ? <TaskCreateSheet onClose={() => setCreating(false)} /> : null}
+      {creating ? <ItemCreateSheet type="task" onClose={() => setCreating(false)} /> : null}
     </Content>
   )
 }

@@ -6,7 +6,7 @@ import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { TaskItem } from '../components/TaskItem'
 import { EmptyState } from '../components/EmptyState'
-import { TaskCreateModal } from '../components/TaskCreateModal'
+import { ItemCreateModal } from '../components/ItemCreateModal'
 
 export function TasksScreen() {
   const { items, toggleDone } = useItems()
@@ -67,7 +67,7 @@ export function TasksScreen() {
         )
       )}
 
-      {creating ? <TaskCreateModal onClose={() => setCreating(false)} /> : null}
+      {creating ? <ItemCreateModal type="task" onClose={() => setCreating(false)} /> : null}
     </Content>
   )
 }

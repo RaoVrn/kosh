@@ -62,6 +62,29 @@ explicit, opt-in seed (`npm run db:seed -w @kosh/api`) and as test fixtures.
 
 ## Clients
 
+All five content types (Task, Note, Idea, Learning, Link) are represented by
+the **same `Item` model** and the same `/api/v1/items` endpoints — there are no
+separate tables or endpoints per type:
+
+```
+                 Item
+                   │
+       ┌───────────┼───────────┐
+       │           │           │
+     Task        Note        Idea
+       │           │           │
+   Learning       Link
+```
+
+- `type` distinguishes them; type-specific rules are validated in
+  `apps/api/src/items/validation.ts` (e.g. `link` requires a valid http(s)
+  `url`; reminders only on tasks).
+- The **Inbox** is the universal capture layer: captures start as `status =
+'inbox'` items and can be converted in place (same id) to any type via
+  `PATCH` — the same workflow future AI classification will use.
+- Tags live on the `Item.tags` field (no separate tag table) and are FTS5
+  indexed.
+
 ### Mobile client (apps/mobile)
 
 - **Stack:** Expo SDK + React Native + TypeScript.

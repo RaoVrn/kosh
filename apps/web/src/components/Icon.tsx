@@ -8,6 +8,7 @@ export type WebIconName =
   | 'file-text'
   | 'zap'
   | 'book-open'
+  | 'link'
   | 'search'
   | 'bell'
   | 'settings'
@@ -18,6 +19,7 @@ export type WebIconName =
   | 'check'
   | 'trash'
   | 'sun'
+  | 'external-link'
 
 type ScreenIconKey = ScreenName
 
@@ -55,6 +57,12 @@ const PATHS: Record<WebIconName, ReactNode> = {
     <>
       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </>
   ),
   search: (
@@ -130,6 +138,13 @@ const PATHS: Record<WebIconName, ReactNode> = {
       <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
     </>
   ),
+  'external-link': (
+    <>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </>
+  ),
 }
 
 interface IconProps {
@@ -163,6 +178,7 @@ export const WEB_SCREEN_ICONS: Record<ScreenIconKey, WebIconName> = {
   notes: 'file-text',
   ideas: 'zap',
   learning: 'book-open',
+  links: 'link',
   search: 'search',
   notifications: 'bell',
   settings: 'settings',

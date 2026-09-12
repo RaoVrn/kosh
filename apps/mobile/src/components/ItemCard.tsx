@@ -1,7 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Item } from '@kosh/shared'
-import { colors, radius, spacing, typeColors } from '../theme'
-import { learningStatusLabel, typeLabel } from '@kosh/shared'
+import { colors, radius, spacing } from '../theme'
+import {
+  domainFromUrl,
+  learningStatusLabel,
+  priorityColors,
+  priorityLabel,
+  typeLabel,
+} from '@kosh/shared'
 import { formatDue, isOverdue, relativeTime } from '@kosh/shared'
 import { Badge } from './Badge'
 import { TypeBadge } from './TypeBadge'
@@ -18,6 +24,9 @@ export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardP
   const done = item.status === 'done'
   const showCheck = item.type === 'task' && onToggleDone !== undefined
   const isLearning = item.type === 'learning'
+  const isLink = item.type === 'link'
+  const domain = isLink && item.url ? domainFromUrl(item.url) : null
+  const showTags = item.type !== 'task' && (item.tags?.length ?? 0) > 0
 
   return (
     <Pressable
@@ -52,14 +61,31 @@ export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardP
             {item.body}
           </Text>
         ) : null}
-        {item.url ? (
+        {isLink && domain ? (
+          <Text style={styles.url} numberOfLines={1}>
+            {domain}
+          </Text>
+        ) : item.url && !isLink ? (
           <Text style={styles.url} numberOfLines={1}>
             {item.url}
           </Text>
         ) : null}
 
+        {showTags ? (
+          <View style={styles.tagRow}>
+            {(item.tags ?? []).map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.footer}>
           <TypeBadge type={item.type} />
+          {isLearning && item.priority ? (
+            <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
+          ) : null}
           {isLearning && item.status !== 'inbox' ? (
             <Badge label={learningStatusLabel[item.status]} />
           ) : null}
@@ -130,9 +156,28 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   url: {
-    color: typeColors.link,
+    color: colors.warning,
     fontSize: 12,
     marginTop: 2,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  tag: {
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  tagText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',

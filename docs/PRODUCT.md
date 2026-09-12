@@ -66,6 +66,22 @@ Core MVP (the initial build):
 The user is **never required** to choose a category when capturing. Everything
 starts as an untagged inbox item; type/status can be changed or inferred later.
 
+### Five content types
+
+Kosh stores everything as one of five first-class content types, all carried by
+the same `Item` model (no separate stores):
+
+| Type     | Purpose                                | Key fields                     |
+| -------- | -------------------------------------- | ------------------------------ |
+| Task     | to-dos with due dates and reminders    | priority · dueAt · reminderAt  |
+| Note     | longer thoughts and information        | body · tags · optional url     |
+| Idea     | project ideas and half-formed thoughts | body · tags · optional url     |
+| Learning | things to learn / backlog              | priority · status · url · tags |
+| Link     | saved URLs                             | url (required) · tags · body   |
+
+**Inbox** is the universal capture layer: anything captured lands there first
+and can later be converted (in place, same item id) into any of the five types.
+
 ## Future features
 
 - **AI-assisted organization** — auto-classify captures, suggest due dates,

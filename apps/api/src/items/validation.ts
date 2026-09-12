@@ -1,4 +1,5 @@
 import { ITEM_STATUSES, ITEM_TYPES, PRIORITIES } from '@kosh/shared'
+import { isValidHttpUrl } from '@kosh/shared'
 import type { ItemStatus, ItemType, Priority } from '@kosh/shared'
 import type { CreateItemData, UpdateItemData } from './repo.js'
 
@@ -46,6 +47,11 @@ export function assertReminderRules(
   if (dueAt && new Date(reminderAt).getTime() > new Date(dueAt).getTime()) {
     fail('reminder must not be after the due time')
   }
+}
+
+export function assertTypeRules(type: ItemType, url: string | null | undefined): void {
+  if (url && !isValidHttpUrl(url)) fail('url must be a valid http(s) URL')
+  if (type === 'link' && !url) fail('url is required for links')
 }
 
 export function parseId(value: string): string {
@@ -120,6 +126,7 @@ export function parseCreateBody(body: unknown): CreateItemData {
   const tags = optionalTags(body.tags)
 
   assertReminderRules(body.type, dueAt, reminderAt)
+  assertTypeRules(body.type, url)
 
   return {
     title,

@@ -82,3 +82,32 @@ export function sortPendingTasks(items: Item[]): Item[] {
       return byDueAt(a, b)
     })
 }
+
+export interface LearningGroups {
+  highPriority: Item[]
+  active: Item[]
+  notStarted: Item[]
+  completed: Item[]
+}
+
+export function getLearningGroups(items: Item[]): LearningGroups {
+  const learning = items.filter((i) => i.type === 'learning')
+
+  const highPriority = learning
+    .filter((i) => i.priority === 'high' && i.status !== 'done')
+    .sort(compareTasks)
+
+  const active = learning
+    .filter((i) => i.status === 'active' && i.priority !== 'high')
+    .sort(compareTasks)
+
+  const notStarted = learning
+    .filter((i) => i.status === 'inbox' && i.priority !== 'high')
+    .sort(compareTasks)
+
+  const completed = learning
+    .filter((i) => i.status === 'done')
+    .sort((a, b) => (b.doneAt ?? b.updatedAt).localeCompare(a.doneAt ?? a.updatedAt))
+
+  return { highPriority, active, notStarted, completed }
+}

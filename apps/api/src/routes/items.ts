@@ -5,6 +5,7 @@ import { buildFtsQuery } from '../items/search.js'
 import {
   ValidationError,
   assertReminderRules,
+  assertTypeRules,
   isItemStatus,
   isItemType,
   parseCreateBody,
@@ -108,7 +109,9 @@ export function itemsRoutes(db: Db): Hono {
     const effectiveDue = patch.dueAt !== undefined ? patch.dueAt : existing.dueAt
     const effectiveReminder =
       patch.reminderAt !== undefined ? patch.reminderAt : existing.reminderAt
+    const effectiveUrl = patch.url !== undefined ? patch.url : existing.url
     assertReminderRules(effectiveType, effectiveDue, effectiveReminder)
+    assertTypeRules(effectiveType, effectiveUrl)
 
     const item = repo.updateItem(db, id, patch)
     if (!item) return c.json({ error: { message: 'Item not found' } }, 404)

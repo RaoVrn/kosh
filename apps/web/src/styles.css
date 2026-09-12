@@ -932,3 +932,74 @@ textarea {
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* ---------- tags ---------- */
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-s);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 7px;
+}
+
+.tag-remove {
+  display: inline-flex;
+  color: var(--text-faint);
+  padding: 0;
+}
+
+.tag-remove:hover {
+  color: var(--danger);
+}
+
+.tag-input {
+  width: 100%;
+}
+
+.tag-input input {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: 14px;
+  padding: 9px 12px;
+  color: var(--text);
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.modal-body-input {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 12px;
+  color: var(--text);
+  resize: vertical;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

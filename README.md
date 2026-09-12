@@ -10,23 +10,26 @@ necessary.
 ## Status
 
 ```
-PERSISTENT SHARED DATA + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
+ALL FIVE CONTENT TYPES + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
 ```
 
-The backend API (Hono + SQLite) is the source of truth for items and
-notifications. **Both** the mobile app and the web app share the same data
-through a shared API client, an in-process **reminder scheduler** fires due
-task reminders exactly once, and **search is server-side** (SQLite FTS5) so
-you never have to download every item to find something.
+The backend API (Hono + SQLite) is the source of truth. **Both** the mobile
+app and the web app share the same data through a shared API client. Kosh
+stores five first-class content types — **Task, Note, Idea, Learning, Link** —
+on one `Item` model, plus tasks/reminders, an in-process reminder scheduler,
+in-app notifications, and server-side FTS5 search.
 
 ### What works now
 
-- Backend: items CRUD + **FTS5 search** (`?q=` + type/status filters +
-  limit/offset), notifications API, validation, CORS, tracked migrations,
-  explicit seeding, reminder scheduler
-- Server-side search on both clients: debounced, ranked, with type filters
-- Tasks: priority, due date/time, reminder, completion — all persisted
+- Five content types, fully CRUD, on web + mobile (Notes, Ideas, Learning,
+  Links have dedicated screens and New-item flows)
+- Type-specific validation (links require a valid URL; reminders task-only)
+- Manual type conversion in place (same id, content preserved) — the future
+  AI-classification workflow
+- Tags on every item: add/remove/edit, FTS5-searchable
+- Tasks: priority, due date/time, reminder, completion
 - Reminders fire exactly once; completed/archived tasks are skipped
+- Server-side search (debounced, ranked, with type filters)
 - In-app notification center with unread badge on both clients
 - Web browser notifications (opt-in); mobile local notifications
 - **Mobile:** bottom tabs on phone, sidebar on desktop

@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native'
 import { ITEM_TYPES, PRIORITIES } from '@kosh/shared'
-import { colors, layout, radius, spacing, typeColors } from '../theme'
+import { colors, layout, radius, spacing } from '../theme'
 import { priorityLabel, typeLabel } from '@kosh/shared'
 import {
   atTimeOnDay,
@@ -28,6 +28,7 @@ import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
+import { TagInput } from './TagInput'
 
 export function ItemDetailSheet() {
   const { selectedItemId, closeItem } = useNav()
@@ -89,11 +90,35 @@ export function ItemDetailSheet() {
               accessibilityLabel="Item details"
             />
 
-            {item.url ? (
-              <Text style={styles.url} numberOfLines={1}>
-                {item.url}
-              </Text>
+            {item.type !== 'task' ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Link</Text>
+                <TextInput
+                  value={item.url ?? ''}
+                  onChangeText={(u) => updateItem(item.id, { url: u })}
+                  style={styles.urlInput}
+                  placeholder="https://…"
+                  placeholderTextColor={colors.textFaint}
+                  accessibilityLabel="URL"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {item.type === 'link' && !item.url ? (
+                  <Text style={[styles.meta, styles.warning]}>
+                    A valid http(s) URL is required for links.
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Tags</Text>
+              <TagInput
+                tags={item.tags ?? []}
+                onChange={(tags) => updateItem(item.id, { tags })}
+                accessibilityLabel="Tags"
+              />
+            </View>
 
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Type</Text>
@@ -318,10 +343,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     minHeight: 44,
   },
-  url: {
-    color: typeColors.link,
-    fontSize: 13,
-    marginTop: spacing.md,
+  urlInput: {
+    color: colors.text,
+    fontSize: 14,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   section: {
     marginTop: spacing.xl,

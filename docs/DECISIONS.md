@@ -346,6 +346,46 @@ item)`. The MVP implementation persists a row in the `notifications` table
   (`C++`, `Rahul's`, `-`, `:`…), with predictable (not perfect-recall) results.
   Cursor pagination deferred — offset pagination is sufficient for the MVP.
 
+### D29 — One `Item` model for all content types
+
+- **Status:** Accepted (content types)
+- **Decision:** Task, Note, Idea, Learning and Link all remain one `Item`
+  record distinguished by `type`. There are **no separate tables, endpoints or
+  client models** per type — `POST/PATCH/GET/DELETE /api/v1/items` with the
+  right `type` is the entire API.
+- **Why:** matches the product reality (a capture is a capture), keeps the
+  backend minimal, and makes future AI classification a simple field update.
+
+### D30 — Inbox is the universal capture layer; conversion preserves the id
+
+- **Status:** Accepted (content types)
+- **Decision:** Captures always land with `status='inbox'`. Converting an item
+  to another type is a plain `PATCH` of `type` — same id, title/body/url/tags
+  and timestamps preserved, `updatedAt` bumped, never a duplicate. This is the
+  exact workflow AI classification will automate later.
+- **Why:** zero-friction capture + in-place organization; the manual
+  conversion path is the future AI path.
+
+### D31 — Type-specific validation (minimal)
+
+- **Status:** Accepted (content types)
+- **Decision:** Validation adds only what each type genuinely needs: `link`
+  requires a valid http(s) `url`; any supplied `url` must be a valid http(s)
+  URL; reminders stay task-only. Optional fields (priority on notes, url on
+  ideas, …) are **not** rejected.
+- **Why:** prevents malformed data without a validation framework or
+  over-rejection.
+
+### D32 — Detail editing keeps live autosave; creation uses Save
+
+- **Status:** Accepted (content types)
+- **Decision:** The shared detail editor continues to save on change (deeply
+  integrated autosave, allowed by scope). New-item flows (New Note / Idea /
+  Learning / Link / Task) use a single generic create dialog with an explicit
+  Create button, fields shown per type.
+- **Why:** avoids rewriting the working editor; creation gets a clean,
+  deliberate flow.
+
 ## Product decisions
 
 ### P1 — No category selection at capture time

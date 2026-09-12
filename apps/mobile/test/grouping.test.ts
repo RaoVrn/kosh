@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { Item } from '@kosh/shared'
-import { compareTasks, getTaskGroups, getTodayGroups, sortPendingTasks } from '@kosh/shared'
+import {
+  compareTasks,
+  getLearningGroups,
+  getTaskGroups,
+  getTodayGroups,
+  sortPendingTasks,
+} from '@kosh/shared'
 import { atTimeOnDay, daysFromNow } from '@kosh/shared'
 
 const REF = new Date(2026, 8, 11, 12, 0, 0)
@@ -120,6 +126,35 @@ describe('sortPendingTasks', () => {
     ]
     const sorted = sortPendingTasks(items).map((i) => i.id)
     expect(sorted).toEqual(['pending-soon', 'pending-later', 'done-later'])
+  })
+})
+
+describe('getLearningGroups', () => {
+  it('groups learning items by priority and status', () => {
+    const items: Item[] = [
+      task({ id: 'high', type: 'learning', priority: 'high', status: 'inbox' }),
+      task({ id: 'active', type: 'learning', status: 'active' }),
+      task({ id: 'notstarted', type: 'learning', status: 'inbox' }),
+      task({ id: 'done', type: 'learning', status: 'done' }),
+      task({ id: 'highdone', type: 'learning', priority: 'high', status: 'done' }),
+      task({ id: 'note', type: 'note', status: 'active' }),
+    ]
+    const groups = getLearningGroups(items)
+    expect(groups.highPriority.map((i) => i.id)).toEqual(['high'])
+    expect(groups.active.map((i) => i.id)).toEqual(['active'])
+    expect(groups.notStarted.map((i) => i.id)).toEqual(['notstarted'])
+    expect(groups.completed.map((i) => i.id)).toEqual(['done', 'highdone'])
+  })
+
+  it('sorts by priority within groups', () => {
+    const items: Item[] = [
+      task({ id: 'low', type: 'learning', priority: 'low', status: 'active' }),
+      task({ id: 'high', type: 'learning', priority: 'high', status: 'active' }),
+      task({ id: 'med', type: 'learning', priority: 'medium', status: 'active' }),
+    ]
+    const groups = getLearningGroups(items)
+    expect(groups.highPriority.map((i) => i.id)).toEqual(['high'])
+    expect(groups.active.map((i) => i.id)).toEqual(['med', 'low'])
   })
 })
 

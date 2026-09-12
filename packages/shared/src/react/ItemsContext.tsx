@@ -22,6 +22,7 @@ export interface ItemInput {
   body?: string
   url?: string
   type?: ItemType
+  status?: ItemStatus
   priority?: Priority | null
   dueAt?: string | null
   reminderAt?: string | null
@@ -93,7 +94,7 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
           body: input.body,
           url: input.url,
           type: input.type ?? 'note',
-          status: 'inbox',
+          status: input.status ?? 'inbox',
           priority: input.priority ?? null,
           dueAt: input.dueAt ?? null,
           reminderAt: input.reminderAt ?? null,

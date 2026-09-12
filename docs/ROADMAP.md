@@ -105,14 +105,23 @@ exactly once.
 
 Goal: the four non-task capture types are first-class but still one inbox.
 
-- [ ] API: `url` field on items; link handling (store URL, extract title).
-- [~] Type badges and per-type filter tabs (All / Tasks / Notes /
-  Ideas / Learning / Links) on both clients. _(badges + per-section screens
-  exist; per-type filter tabs inside a section are partial — Tasks screen has
-  filters)_
+- [x] API: `url` field with validation; `link` type requires a valid http(s)
+      URL; type-specific rules (reminders only on tasks).
+- [x] Type badges, per-type sections and per-type create flows (New Note /
+      Idea / Learning / Link) on both clients, reusing one generic editor.
+- [x] Notes: create/edit/delete with title, body, tags, URL; previews sorted
+      by updatedAt.
+- [x] Ideas: create/edit/delete with title, description, optional link, tags.
+- [x] Learning: create/edit/delete, mark active/done/archive, priority, link,
+      tags; backlog grouped into High priority / Active / Not started /
+      Completed.
+- [x] Links: dedicated Links screen; URL required + validated; external open
+      button in the detail view.
+- [x] Tags: add/remove/edit on every type via TagInput; FTS5-indexed.
+- [x] Manual type conversion (convert inbox/any item to any type in place,
+      same id, content preserved) — the workflow AI classification will use.
 - [ ] Link capture shortcut (paste URL → prefilled item).
-- [ ] Longer-form note editing screen.
-- [ ] API: update classification on existing items (manual re-type).
+- [ ] URL metadata extraction (future; explicitly not scraping yet).
 
 ## Phase 6 — Search
 
@@ -132,30 +141,24 @@ Goal: find anything you have ever captured, without downloading everything.
 - [ ] Search from a share-sheet-style quick action (if cheap).
 - Semantic/vector search, embeddings and AI retrieval remain future work.
 
-## Phase 7 — Voice capture and push
+## Phase 7 — Smart Capture + Voice
 
-Goal: speak a capture; get real push reminders.
+Goal: capture by voice, and let captures classify themselves.
 
 - [ ] Mobile: record audio (expo-av / expo-audio), upload to API.
 - [ ] API: `POST /api/v1/transcriptions` → transcribe via hosted STT (Whisper).
 - [ ] Pipeline: transcription output flows through the normal capture path.
 - [ ] Mobile: mic button on the capture surface.
+- [ ] API: optional LLM post-processor on create (classify `type`, suggest
+      `due_at`, clean title) — the same in-place conversion workflow built in
+      Phase 5.
+- [ ] API: validation of LLM output against `@kosh/shared` types; fallback to
+      inbox on failure.
+- [ ] Clients: show confidence / suggestion UI ("Looks like a task — confirm?").
 - [ ] API: send push via Expo push service for fired reminders.
 - [ ] Mobile: register push token; handle push → open item.
 
-## Phase 8 — AI organization
-
-Goal: captures classify themselves.
-
-- [ ] API: optional LLM post-processor on create (classify `type`, suggest
-      `due_at`, clean title).
-- [ ] API: validation of LLM output against `@kosh/shared` types; fallback to
-      inbox on failure.
-- [ ] API: batch re-classify of existing inbox items (manual trigger).
-- [ ] Clients: show confidence / suggestion UI ("Looks like a task — confirm?").
-- [ ] API: natural-language parse ("remind me friday 9am …").
-
-## Phase 9 — Polish and deployment
+## Phase 8 — Polish and deployment
 
 Goal: a shippable personal tool.
 

@@ -20,6 +20,7 @@ import {
 import { useNav } from '../state/NavContext'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
+import { TagInput } from './TagInput'
 
 export function ItemDetailModal() {
   const { selectedItemId, closeItem } = useNav()
@@ -43,9 +44,22 @@ export function ItemDetailModal() {
       <div className="modal" role="dialog" aria-modal="true" aria-label={item.title}>
         <div className="modal-header">
           <TypeBadge type={item.type} />
-          <button type="button" className="icon-btn" onClick={closeItem} aria-label="Close">
-            <Icon name="x" size={20} />
-          </button>
+          <div className="modal-header-actions">
+            {item.url ? (
+              <a
+                className="icon-btn"
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open link"
+              >
+                <Icon name="external-link" size={18} />
+              </a>
+            ) : null}
+            <button type="button" className="icon-btn" onClick={closeItem} aria-label="Close">
+              <Icon name="x" size={20} />
+            </button>
+          </div>
         </div>
 
         <textarea
@@ -63,7 +77,31 @@ export function ItemDetailModal() {
           placeholder="Add details…"
           aria-label="Item details"
         />
-        {item.url ? <p className="card-url">{item.url}</p> : null}
+
+        {item.type !== 'task' ? (
+          <div className="modal-section">
+            <div className="modal-label">Link</div>
+            <input
+              className="modal-title-input"
+              value={item.url ?? ''}
+              onChange={(e) => updateItem(item.id, { url: e.target.value })}
+              placeholder="https://…"
+              aria-label="URL"
+            />
+            {item.type === 'link' && !item.url ? (
+              <p className="modal-meta warning">A valid http(s) URL is required for links.</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="modal-section">
+          <div className="modal-label">Tags</div>
+          <TagInput
+            tags={item.tags ?? []}
+            onChange={(tags) => updateItem(item.id, { tags })}
+            ariaLabel="Tags"
+          />
+        </div>
 
         <div className="modal-section">
           <div className="modal-label">Type</div>

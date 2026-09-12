@@ -264,7 +264,7 @@ describe('Kosh web app', () => {
     fireEvent.click(screen.getByRole('button', { name: 'New task' }))
     await screen.findByRole('dialog', { name: 'New task' })
 
-    fireEvent.change(screen.getByLabelText('Task title'), { target: { value: 'Write report' } })
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Write report' } })
     fireEvent.change(screen.getByLabelText('Due date and time'), {
       target: { value: '2026-09-14T18:00' },
     })
@@ -353,5 +353,181 @@ describe('Kosh web app', () => {
       )
       expect(patchCall).toBeTruthy()
     })
+  })
+
+  it('creates a note with tags through the Notes screen', async () => {
+    const fetchMock = createApiFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
+    await screen.findByRole('heading', { name: 'Notes', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'New note' }))
+    await screen.findByRole('dialog', { name: 'New note' })
+
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'RAG architecture notes' },
+    })
+    fireEvent.change(screen.getByLabelText('Details'), {
+      target: { value: 'Chunking, retrieval, reranking.' },
+    })
+    fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'rag' } })
+    fireEvent.keyDown(screen.getByLabelText('Tags'), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Create Note' }))
+
+    expect(await screen.findByText('RAG architecture notes')).toBeTruthy()
+    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+    const posted = JSON.parse(String(postCall?.[1]?.body)) as {
+      type: string
+      status: string
+      tags: string[]
+    }
+    expect(posted.type).toBe('note')
+    expect(posted.status).toBe('active')
+    expect(posted.tags).toEqual(['rag'])
+  })
+
+  it('creates a link with a URL and requires one', async () => {
+    const fetchMock = createApiFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Links' }))
+    await screen.findByRole('heading', { name: 'Links', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'New link' }))
+    await screen.findByRole('dialog', { name: 'New link' })
+
+    const title = screen.getByLabelText('Title')
+    fireEvent.change(title, { target: { value: 'Practical RAG guide' } })
+    const create = screen.getByRole('button', { name: 'Create Link' })
+    expect((create as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'https://example.com/rag' } })
+    expect((create as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(create)
+
+    expect(await screen.findByText('Practical RAG guide')).toBeTruthy()
+    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+    const posted = JSON.parse(String(postCall?.[1]?.body)) as { type: string; url: string }
+    expect(posted.type).toBe('link')
+    expect(posted.url).toBe('https://example.com/rag')
+  })
+
+  it('converts an item type in place through the detail dialog', async () => {
+    const fetchMock = createApiFetchMock([
+      {
+        id: 'c1',
+        type: 'note' as const,
+        status: 'inbox' as const,
+        title: 'Convertible note',
+        priority: null,
+        tags: null,
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+    ])
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    const card = await screen.findByText('Convertible note')
+    fireEvent.click(card)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Idea' }))
+    await waitFor(() => {
+      const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+      const patched = JSON.parse(String(patchCall?.[1]?.body)) as { type: string }
+      expect(patched.type).toBe('idea')
+    })
+  })
+
+  it('edits tags on an item through the detail dialog', async () => {
+    const fetchMock = createApiFetchMock([
+      {
+        id: 't1',
+        type: 'note' as const,
+        status: 'active' as const,
+        title: 'Tagged note',
+        priority: null,
+        tags: ['ai'],
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+    ])
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Notes' }))
+    const card = await screen.findByText('Tagged note')
+    fireEvent.click(card)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'rag' } })
+    fireEvent.keyDown(screen.getByLabelText('Tags'), { key: 'Enter' })
+
+    await waitFor(() => {
+      const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+      const patched = JSON.parse(String(patchCall?.[1]?.body)) as { tags: string[] }
+      expect(patched.tags).toContain('rag')
+    })
+  })
+
+  it('shows learning backlog groups', async () => {
+    const seed = [
+      {
+        id: 'lh',
+        type: 'learning' as const,
+        status: 'inbox' as const,
+        title: 'Kubernetes',
+        priority: 'high' as const,
+        tags: null,
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: 'la',
+        type: 'learning' as const,
+        status: 'active' as const,
+        title: 'Docker',
+        priority: 'medium' as const,
+        tags: null,
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: 'ld',
+        type: 'learning' as const,
+        status: 'done' as const,
+        title: 'Python generators',
+        priority: null,
+        tags: null,
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: 'ln',
+        type: 'learning' as const,
+        status: 'inbox' as const,
+        title: 'Async Python',
+        priority: 'low' as const,
+        tags: null,
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+    ]
+    vi.stubGlobal('fetch', createApiFetchMock(seed))
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Learning' }))
+
+    expect(await screen.findByRole('heading', { name: 'High priority', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Active', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Not started', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Completed', level: 2 })).toBeTruthy()
+    expect(screen.getByText('Kubernetes')).toBeTruthy()
   })
 })

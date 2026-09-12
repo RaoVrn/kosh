@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { Pressable, StyleSheet, Text } from 'react-native'
+import { colors, radius } from '../theme'
 import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
@@ -10,48 +10,44 @@ import { EmptyState } from '../components/EmptyState'
 import { ItemCreateSheet } from '../components/ItemCreateSheet'
 import { Icon } from '../components/Icon'
 
-export function NotesScreen() {
+export function LinksScreen() {
   const { items } = useItems()
   const { openItem } = useNav()
   const [creating, setCreating] = useState(false)
 
-  const notes = useMemo(
+  const links = useMemo(
     () =>
       items
-        .filter((i) => i.type === 'note')
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+        .filter((i) => i.type === 'link')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [items],
   )
 
   return (
     <Content>
       <PageHeader
-        title="Notes"
-        subtitle="Thoughts worth keeping."
+        title="Links"
+        subtitle="Useful things you want to keep."
         right={
           <Pressable
             onPress={() => setCreating(true)}
             accessibilityRole="button"
-            accessibilityLabel="New note"
+            accessibilityLabel="New link"
             style={({ pressed }) => [styles.newBtn, pressed && styles.pressed]}
           >
             <Icon name="plus" size={16} color={colors.background} />
-            <Text style={styles.newBtnText}>New note</Text>
+            <Text style={styles.newBtnText}>New link</Text>
           </Pressable>
         }
       />
-      {notes.length === 0 ? (
-        <EmptyState
-          icon="file-text"
-          title="No notes yet"
-          message="Capture something worth remembering."
-        />
+      {links.length === 0 ? (
+        <EmptyState icon="link" title="No saved links yet" message="Save a link worth keeping." />
       ) : (
-        notes.map((note) => (
-          <ItemCard key={note.id} item={note} onPress={() => openItem(note.id)} />
+        links.map((link) => (
+          <ItemCard key={link.id} item={link} onPress={() => openItem(link.id)} />
         ))
       )}
-      {creating ? <ItemCreateSheet type="note" onClose={() => setCreating(false)} /> : null}
+      {creating ? <ItemCreateSheet type="link" onClose={() => setCreating(false)} /> : null}
     </Content>
   )
 }

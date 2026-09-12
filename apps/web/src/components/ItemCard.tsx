@@ -1,5 +1,14 @@
 import type { Item } from '@kosh/shared'
-import { formatDue, isOverdue, learningStatusLabel, relativeTime, typeLabel } from '@kosh/shared'
+import {
+  domainFromUrl,
+  formatDue,
+  isOverdue,
+  learningStatusLabel,
+  priorityColors,
+  priorityLabel,
+  relativeTime,
+  typeLabel,
+} from '@kosh/shared'
 import { Badge } from './Badge'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
@@ -15,6 +24,9 @@ export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardP
   const done = item.status === 'done'
   const showCheck = item.type === 'task' && onToggleDone !== undefined
   const isLearning = item.type === 'learning'
+  const isLink = item.type === 'link'
+  const domain = isLink && item.url ? domainFromUrl(item.url) : null
+  const showTags = item.type !== 'task' && (item.tags?.length ?? 0) > 0
 
   return (
     <article
@@ -47,10 +59,27 @@ export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardP
       <div className="card-body">
         <p className={`card-title${done ? ' done' : ''}`}>{item.title}</p>
         {item.body && item.body !== item.title ? <p className="card-preview">{item.body}</p> : null}
-        {item.url ? <p className="card-url">{item.url}</p> : null}
+        {isLink && domain ? (
+          <p className="card-url">{domain}</p>
+        ) : item.url && !isLink ? (
+          <p className="card-url">{item.url}</p>
+        ) : null}
+
+        {showTags ? (
+          <div className="card-tags">
+            {(item.tags ?? []).map((tag) => (
+              <span key={tag} className="tag">
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <div className="card-footer">
           <TypeBadge type={item.type} />
+          {isLearning && item.priority ? (
+            <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
+          ) : null}
           {isLearning && item.status !== 'inbox' ? (
             <Badge label={learningStatusLabel[item.status]} />
           ) : null}

@@ -7,42 +7,38 @@ import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 import { ItemCreateModal } from '../components/ItemCreateModal'
 
-export function NotesScreen() {
+export function LinksScreen() {
   const { items } = useItems()
   const { openItem } = useNav()
   const [creating, setCreating] = useState(false)
 
-  const notes = useMemo(
+  const links = useMemo(
     () =>
       items
-        .filter((i) => i.type === 'note')
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+        .filter((i) => i.type === 'link')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [items],
   )
 
   return (
     <Content>
       <PageHeader
-        title="Notes"
-        subtitle="Thoughts worth keeping."
+        title="Links"
+        subtitle="Useful things you want to keep."
         right={
           <button type="button" className="btn-primary" onClick={() => setCreating(true)}>
-            New note
+            New link
           </button>
         }
       />
-      {notes.length === 0 ? (
-        <EmptyState
-          icon="file-text"
-          title="No notes yet"
-          message="Capture something worth remembering."
-        />
+      {links.length === 0 ? (
+        <EmptyState icon="link" title="No saved links yet" message="Save a link worth keeping." />
       ) : (
-        notes.map((note) => (
-          <ItemCard key={note.id} item={note} onPress={() => openItem(note.id)} />
+        links.map((link) => (
+          <ItemCard key={link.id} item={link} onPress={() => openItem(link.id)} />
         ))
       )}
-      {creating ? <ItemCreateModal type="note" onClose={() => setCreating(false)} /> : null}
+      {creating ? <ItemCreateModal type="link" onClose={() => setCreating(false)} /> : null}
     </Content>
   )
 }

@@ -16,31 +16,31 @@ you when necessary.
 ## Current Project Status
 
 ```
-PERSISTENT SHARED DATA + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
+ALL FIVE CONTENT TYPES + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
 ```
 
-- **API (`apps/api`)**: `/api/v1/items` CRUD **+ FTS5 full-text search**
-  (`?q=…` with `type`/`status` filters, `limit`/`offset`, bm25 ranking) +
-  `/api/v1/notifications`, on Hono + SQLite, tracked migrations, validation,
-  CORS for local dev, explicit `db:seed`. In-process **reminder scheduler**
-  fires due reminders exactly once (persisted in-app notifications +
-  `reminded_at`).
-- **Mobile (`apps/mobile`)**: 8 screens + notifications, wired to the API
-  through the shared provider. Task creation/editing (priority, due, reminder),
-  grouped Tasks/Today screens, notification center, local notification
-  scheduling, and a debounced server-side Search screen.
-- **Web (`apps/web`)**: Vite + React on `http://localhost:3000`, same screens,
-  New Task modal, notification center with unread badge, browser-notification
-  toggle, server-side Search with type filters.
-- **Shared (`packages/shared`)**: typed API client (items + search params +
-  notifications), API-backed `ItemsProvider` (+ `search`), `NotificationsProvider`,
-  `useServerSearch` (debounced, stale-safe), task grouping/time utils, types.
+- **API (`apps/api`)**: `/api/v1/items` CRUD for **all five types** (task,
+  note, idea, learning, link) with type-specific validation (`link` requires a
+  valid http(s) URL; reminders task-only) + FTS5 search (`?q=…`, filters,
+  limit/offset, bm25) + `/api/v1/notifications`, on Hono + SQLite, tracked
+  migrations, CORS, explicit `db:seed`. In-process reminder scheduler fires
+  due reminders exactly once.
+- **Mobile (`apps/mobile`)**: 10 screens incl. **Links**; Notes/Ideas/
+  Learning/Links have dedicated create sheets and are fully CRUD; Learning
+  backlog grouped by priority/status; tags editable everywhere; search is
+  server-side (debounced).
+- **Web (`apps/web`)**: Vite + React on `http://localhost:3000`, same screens;
+  generic New-item modal per type, tag editing, detail editor with URL + tags,
+  links screen with external-open.
+- **Shared (`packages/shared`)**: typed API client, `ItemsProvider` (+
+  `search`), `NotificationsProvider`, `useServerSearch`, task/learning
+  grouping utils, url utils, types.
+- Type conversion = in-place `PATCH` of `type` (same id, content preserved) —
+  the future AI-classification workflow.
 - Mock data is only an explicit seed (`npm run db:seed -w @kosh/api`) and test
   fixtures.
-- No AI, voice, auth, push-token registration, recurring reminders, or
-  semantic/vector search yet.
-- Next milestones: **Phase 5 — notes/ideas/learning/links polish** and
-  **Phase 7 — voice capture + push** (see `docs/ROADMAP.md`).
+- No AI, voice, auth, push, recurring reminders, or semantic search yet.
+- Next milestone: **Phase 7 — Smart Capture + Voice** (see `docs/ROADMAP.md`).
 
 This status section must be updated whenever a milestone completes or the
 architecture changes.
@@ -95,19 +95,22 @@ apps/
       notifications/ repo.ts
       routes/     HTTP handlers (health, items, notifications)
       seed.ts     explicit mock-data seed (npm run db:seed)
-    test/         vitest tests (health, items CRUD, search, reminders, notifications)
+    test/         vitest tests (health, items CRUD, search, reminders,
+                  notifications, content types + conversion)
   mobile/         Expo app (React Native, TypeScript)
     src/
-      components/ shared UI (AppShell, ItemCard, CaptureInput, …)
-      screens/     one file per screen (Inbox, Today, Tasks, …)
+      components/ shared UI (AppShell, ItemCard, CaptureInput, ItemCreateSheet,
+                  TagInput, …)
+      screens/     one file per screen (Inbox, Today, Tasks, Notes, Ideas,
+                  Learning, Links, Search, Notifications, Settings)
       notifications/ plan.ts (pure) · schedule.ts (expo-notifications)
       state/       React context (navigation)
       navigation/  screen names + icons
     test/         vitest tests for utils + reminder plan
   web/            Vite + React app (laptop/desktop, TypeScript)
     src/
-      components/ web UI (Shell, Sidebar, ItemCard, TaskCreateModal, …)
-      screens/     one file per screen (same 8 screens as mobile)
+      components/ web UI (Shell, Sidebar, ItemCard, ItemCreateModal, TagInput, …)
+      screens/     one file per screen (same 10 screens as mobile)
       state/       navigation context
       test/        vitest + Testing Library interaction tests (fetch-mocked)
 packages/

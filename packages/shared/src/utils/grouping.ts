@@ -1,10 +1,64 @@
-import type { Item } from '../index'
+import type { Item, KoshNotification } from '../index'
 import { isOverdue, isToday } from './time'
 
 export interface TaskGroup {
   key: 'overdue' | 'today' | 'upcoming' | 'completed'
   title: string
   items: Item[]
+}
+
+export interface TodayCommandCenter {
+  overdue: Item[]
+  dueToday: Item[]
+  upNext: Item[]
+  reminders: KoshNotification[]
+  recentCaptures: Item[]
+}
+
+export interface TodayCommandCenterLimits {
+  upNext: number
+  reminders: number
+  recentCaptures: number
+}
+
+const DEFAULT_LIMITS: TodayCommandCenterLimits = { upNext: 5, reminders: 3, recentCaptures: 3 }
+
+export function isPendingTask(item: Item): boolean {
+  return item.type === 'task' && item.status !== 'done' && item.status !== 'archived'
+}
+
+export function getTodayCommandCenter(
+  items: Item[],
+  notifications: KoshNotification[],
+  ref: Date = new Date(),
+  limits: TodayCommandCenterLimits = DEFAULT_LIMITS,
+): TodayCommandCenter {
+  const pending = items.filter(isPendingTask)
+
+  const overdue = pending.filter((i) => i.dueAt && isOverdue(i.dueAt, ref)).sort(compareTasks)
+  const overdueIds = new Set(overdue.map((i) => i.id))
+
+  const dueToday = pending
+    .filter((i) => i.dueAt && isToday(i.dueAt, ref) && !overdueIds.has(i.id))
+    .sort(compareTasks)
+  const dueTodayIds = new Set(dueToday.map((i) => i.id))
+
+  const upNext = pending
+    .filter((i) => !overdueIds.has(i.id) && !dueTodayIds.has(i.id))
+    .sort(compareTasks)
+    .slice(0, limits.upNext)
+
+  const reminders = notifications
+    .filter((n) => !n.readAt)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limits.reminders)
+
+  const recentCaptures = items
+    .filter((i) => i.status === 'inbox')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limits.recentCaptures)
+
+  return { overdue, dueToday, upNext, reminders, recentCaptures }
 }
 
 export interface TaskGroups {
@@ -28,10 +82,6 @@ export function compareTasks(a: Item, b: Item): number {
   const pb = PRIORITY_ORDER[b.priority ?? 'low'] ?? 2
   if (pa !== pb) return pa - pb
   return byDueAt(a, b)
-}
-
-export function isPendingTask(item: Item): boolean {
-  return item.type === 'task' && item.status !== 'done'
 }
 
 export function getTaskGroups(items: Item[], ref: Date = new Date()): TaskGroups {

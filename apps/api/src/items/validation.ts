@@ -1,7 +1,8 @@
 import { ITEM_STATUSES, ITEM_TYPES, PRIORITIES } from '@kosh/shared'
 import { isValidHttpUrl } from '@kosh/shared'
-import type { ItemStatus, ItemType, Priority } from '@kosh/shared'
+import type { ItemStatus, ItemType, Priority, Recurrence } from '@kosh/shared'
 import type { CreateItemData, UpdateItemData } from './repo.js'
+import { parseRecurrence, recurrenceRequiresDueDate } from '../recurrence/validation.js'
 
 const MAX_TITLE = 500
 const MAX_BODY = 10000
@@ -46,6 +47,18 @@ export function assertReminderRules(
   if (type !== 'task') fail('reminders are only supported on tasks')
   if (dueAt && new Date(reminderAt).getTime() > new Date(dueAt).getTime()) {
     fail('reminder must not be after the due time')
+  }
+}
+
+export function assertRecurrenceRules(
+  type: ItemType,
+  recurrence: Recurrence | null | undefined,
+  dueAt: string | null | undefined,
+): void {
+  if (recurrence === undefined || recurrence === null) return
+  if (type !== 'task') fail('recurrence is only supported on tasks')
+  if (recurrenceRequiresDueDate(recurrence) && !dueAt) {
+    fail('a recurring task requires a due date')
   }
 }
 
@@ -124,9 +137,11 @@ export function parseCreateBody(body: unknown): CreateItemData {
   const dueAt = optionalIso(body.dueAt, 'dueAt')
   const reminderAt = optionalIso(body.reminderAt, 'reminderAt')
   const tags = optionalTags(body.tags)
+  const recurrence = parseRecurrence(body.recurrence)
 
   assertReminderRules(body.type, dueAt, reminderAt)
   assertTypeRules(body.type, url)
+  assertRecurrenceRules(body.type, recurrence ?? null, dueAt ?? null)
 
   return {
     title,
@@ -138,6 +153,7 @@ export function parseCreateBody(body: unknown): CreateItemData {
     dueAt: dueAt ?? null,
     reminderAt: reminderAt ?? null,
     tags: tags ?? null,
+    recurrence: recurrence ?? null,
   }
 }
 
@@ -173,12 +189,14 @@ export function parsePatchBody(body: unknown): UpdateItemData {
   const dueAt = optionalIso(body.dueAt, 'dueAt')
   const reminderAt = optionalIso(body.reminderAt, 'reminderAt')
   const tags = optionalTags(body.tags)
+  const recurrence = parseRecurrence(body.recurrence)
 
   if (bodyText !== undefined) patch.body = bodyText
   if (url !== undefined) patch.url = url
   if (dueAt !== undefined) patch.dueAt = dueAt
   if (reminderAt !== undefined) patch.reminderAt = reminderAt
   if (tags !== undefined) patch.tags = tags
+  if (recurrence !== undefined) patch.recurrence = recurrence
 
   if (Object.keys(patch).length === 0) fail('No fields to update')
 

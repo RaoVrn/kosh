@@ -6,6 +6,7 @@ import {
   learningStatusLabel,
   priorityColors,
   priorityLabel,
+  recurrenceLabel,
   typeLabel,
 } from '@kosh/shared'
 import { formatDue, isOverdue, relativeTime } from '@kosh/shared'
@@ -18,9 +19,22 @@ interface ItemCardProps {
   onPress: () => void
   onToggleDone?: () => void
   highlighted?: boolean
+  onProcess?: () => void
+  onArchive?: () => void
+  onConvertToTask?: () => void
+  onOpenLink?: () => void
 }
 
-export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardProps) {
+export function ItemCard({
+  item,
+  onPress,
+  onToggleDone,
+  highlighted,
+  onProcess,
+  onArchive,
+  onConvertToTask,
+  onOpenLink,
+}: ItemCardProps) {
   const done = item.status === 'done'
   const showCheck = item.type === 'task' && onToggleDone !== undefined
   const isLearning = item.type === 'learning'
@@ -96,10 +110,51 @@ export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardP
               color={isOverdue(item.dueAt) ? colors.danger : colors.textMuted}
             />
           ) : null}
+          {item.type === 'task' && recurrenceLabel(item.recurrence) ? (
+            <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color={colors.textFaint} />
+          ) : null}
           <View style={styles.spacer} />
           <Text style={styles.time}>{relativeTime(item.updatedAt)}</Text>
         </View>
+
+        {onProcess || onArchive || onConvertToTask || onOpenLink ? (
+          <View style={styles.actions}>
+            {onOpenLink ? <ActionButton label="Open" primary={false} onPress={onOpenLink} /> : null}
+            {onProcess ? <ActionButton label="Process" primary onPress={onProcess} /> : null}
+            {onConvertToTask ? (
+              <ActionButton label="Convert to task" primary={false} onPress={onConvertToTask} />
+            ) : null}
+            {onArchive ? (
+              <ActionButton label="Archive" primary={false} onPress={onArchive} />
+            ) : null}
+          </View>
+        ) : null}
       </View>
+    </Pressable>
+  )
+}
+
+function ActionButton({
+  label,
+  primary,
+  onPress,
+}: {
+  label: string
+  primary: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        styles.action,
+        primary && styles.actionPrimary,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.actionText, primary && styles.actionTextPrimary]}>{label}</Text>
     </Pressable>
   )
 }
@@ -191,5 +246,29 @@ const styles = StyleSheet.create({
   time: {
     color: colors.textFaint,
     fontSize: 12,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  action: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  actionPrimary: {
+    borderColor: colors.accent,
+  },
+  actionText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  actionTextPrimary: {
+    color: colors.accent,
   },
 })

@@ -24,7 +24,10 @@ describe('voice flow state machine', () => {
 
   it('turns permission denial into a controlled error state', () => {
     let s = voiceFlowReducer(initialVoiceFlowState, { type: 'request' })
-    s = voiceFlowReducer(s, { type: 'permissionDenied', error: 'Microphone permission was denied.' })
+    s = voiceFlowReducer(s, {
+      type: 'permissionDenied',
+      error: 'Microphone permission was denied.',
+    })
     expect(s.stage).toBe('error')
     expect(s.error).toBe('Microphone permission was denied.')
   })

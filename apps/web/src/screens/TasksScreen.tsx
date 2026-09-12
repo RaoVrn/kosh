@@ -45,7 +45,7 @@ export function TasksScreen() {
       {isEmpty ? (
         <EmptyState
           icon="check-square"
-          title="No tasks yet"
+          title="No active tasks."
           message="Capture something and convert it to a task, or add a new task."
         />
       ) : (

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { errorMessage, useItems } from '@kosh/shared'
+import type { Item } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { PageHeader } from '../components/PageHeader'
 import { CaptureInput } from '../components/CaptureInput'
@@ -14,7 +15,7 @@ interface Feedback {
 }
 
 export function InboxScreen() {
-  const { items, addItem, toggleDone } = useItems()
+  const { items, addItem, toggleDone, updateItem } = useItems()
   const { openItem, captureFocusRequest } = useNav()
   const inputRef = useRef<HTMLInputElement>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -62,6 +63,22 @@ export function InboxScreen() {
     setFeedback({ message: 'Added', isError: false })
   }
 
+  const processItem = (item: Item) => {
+    void updateItem(item.id, { status: 'active' })
+  }
+
+  const archiveItem = (item: Item) => {
+    void updateItem(item.id, { status: 'archived' })
+  }
+
+  const convertToTask = (item: Item) => {
+    void updateItem(item.id, { type: 'task' })
+  }
+
+  const openLink = (item: Item) => {
+    if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="content">
       <PageHeader title="Inbox" subtitle="Everything lands here first." count={inboxItems.length} />
@@ -78,8 +95,8 @@ export function InboxScreen() {
       {inboxItems.length === 0 ? (
         <EmptyState
           icon="inbox"
-          title="Nothing here yet."
-          message="Capture something and Kosh will keep it safe."
+          title="Nothing waiting."
+          message="Capture something and it will land here."
         />
       ) : (
         inboxItems.map((item) => (
@@ -89,6 +106,10 @@ export function InboxScreen() {
             highlighted={item.id === highlightId}
             onPress={() => openItem(item.id)}
             onToggleDone={item.type === 'task' ? () => toggleDone(item.id) : undefined}
+            onProcess={() => processItem(item)}
+            onArchive={() => archiveItem(item)}
+            onConvertToTask={item.type !== 'task' ? () => convertToTask(item) : undefined}
+            onOpenLink={item.type === 'link' && item.url ? () => openLink(item) : undefined}
           />
         ))
       )}

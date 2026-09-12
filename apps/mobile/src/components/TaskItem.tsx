@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Item } from '@kosh/shared'
 import { colors, priorityColors, radius, spacing } from '../theme'
-import { priorityLabel } from '@kosh/shared'
+import { priorityLabel, recurrenceLabel } from '@kosh/shared'
 import { formatDueAt, formatReminderAt, isOverdue } from '@kosh/shared'
 import { Badge } from './Badge'
 import { Icon } from './Icon'
@@ -51,6 +51,12 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
             <View style={styles.reminderChip}>
               <Icon name="bell" size={11} color={colors.accent} />
               <Text style={styles.reminderText}>{formatReminderAt(item.reminderAt)}</Text>
+            </View>
+          ) : null}
+          {recurrenceLabel(item.recurrence) ? (
+            <View style={styles.repeatChip}>
+              <Icon name="repeat" size={11} color={colors.textMuted} />
+              <Text style={styles.repeatText}>{recurrenceLabel(item.recurrence)}</Text>
             </View>
           ) : null}
         </View>
@@ -133,6 +139,20 @@ const styles = StyleSheet.create({
   },
   reminderText: {
     color: colors.accent,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  repeatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  repeatText: {
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
   },

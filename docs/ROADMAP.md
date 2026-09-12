@@ -186,6 +186,68 @@ Goal: a shippable personal tool.
 - [ ] Privacy: data is only yours; document backups.
 - [ ] Refresh `docs/` status sections and the roadmap checkboxes.
 
+## Phase 9 — Inbox processing + Today command center
+
+Goal: make Kosh a daily command center — capture → inbox → process → today →
+do → complete → remember.
+
+- [x] Inbox is a processing queue: quick per-card actions (Process → active,
+      Archive, Convert to task, Open link) on web + mobile; editing an inbox
+      item in the detail editor/sheet moves it to `active` (explicit user
+      intent, no automatic bulk transitions); badge counts `status = inbox`
+      live.
+- [x] Today command center (web + mobile): greeting + quick actions (New
+      capture/task/note/idea/learning), sections Overdue → Due today → Up next
+      with deterministic precedence and no duplicates, plus unread Reminders
+      (mark-read + open linked item) and Recently captured (inbox items).
+- [x] Shared `getTodayCommandCenter` (`packages/shared`) — pure, tested,
+      local-day timezone handling via existing date utilities; done/archived
+      excluded from active sections.
+- [x] Task execution: complete (done + `done_at`), reopen (active + null
+      `done_at`), priority, due date, reminder, tags, archive via status chips
+      in the detail editor/sheet; reminder scheduler untouched.
+- [x] Web keyboard shortcuts: `N` → capture, `T` → tasks, `/` → search
+      (guarded while typing); Escape closes the detail modal.
+- [x] Intentional empty states across screens; priority stays subtle (no
+      warning-style UI).
+- [x] Tests: command-center grouping (precedence, exclusions, caps, reminders),
+      greeting, web inbox processing actions, Today sections, shortcuts.
+
+## Phase 10 — Recurring tasks + advanced reminder management
+
+Goal: responsibilities that repeat automatically, without pre-generating rows.
+
+- [x] Data model: migration `006` adds `recurrence_frequency` (none|daily|
+      weekly|monthly), `recurrence_weekdays` (JSON), `recurrence_month_day`,
+      `recurrence_id` to `items`; tasks only; existing rows default to none.
+- [x] Recurrence validation (`recurrence/validation.ts`): task-only, weekly
+      requires 1–7 unique weekdays (0–6), monthly requires day 1–31,
+      recurrence (non-none) requires a due date; malformed input → Kosh error
+      format.
+- [x] Calculation (`recurrence/calculation.ts`): local-calendar arithmetic —
+      daily +1 day, weekly next selected weekday (strictly after), monthly
+      next month clamped to its last valid day (Jan 31 → Feb 28/29, then
+      recovers Mar 31); time of day preserved.
+- [x] Atomic completion (`recurrence/service.ts`): BEGIN IMMEDIATE → mark done + done_at → calculate next due → preserve reminder offset → insert
+      exactly one active next occurrence (same metadata, series `recurrenceId`)
+      → COMMIT. Idempotent: re-completing a done/archived occurrence never
+      generates; delete/archive never replace; removing recurrence stops
+      generation. PATCH stays the completion API; the shared ItemsProvider
+      refreshes after completing a recurring task.
+- [x] Smart Capture: prompt v2 extracts recurrence (daily/weekly weekdays/
+      monthly day); AI recurrence is validated server-side, dropped when
+      malformed or on non-tasks, and never applied without user confirmation;
+      previews (web + mobile) show and allow editing the Repeat control.
+- [x] UI: Repeat control (Does not repeat / Every day / Every week + M T W T F
+      S S / Every month + day) in web + mobile create/edit editors and smart
+      previews; subtle recurrence chips on task cards; changing recurrence
+      only edits config, never generates occurrences.
+- [x] Tests: calculation (daily/weekly/multi-weekday/monthly/day-31/leap/
+      time preservation), validation (all rules), completion API (exactly-one
+      next, metadata + reminder copied, double-complete, chained series,
+      archive/delete/convert rules), Smart Capture recurrence parsing,
+      RecurrenceControl + app-level wiring on web, label utils on mobile.
+
 ---
 
 ## Later (beyond MVP)

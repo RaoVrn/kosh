@@ -7,6 +7,7 @@ import {
   priorityLabel,
 } from '@kosh/shared'
 import { Badge } from './Badge'
+import { recurrenceLabel } from '@kosh/shared'
 import { Icon } from './Icon'
 
 interface TaskItemProps {
@@ -60,6 +61,12 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
             <span className="reminder-chip">
               <Icon name="bell" size={11} />
               {formatReminderAt(item.reminderAt)}
+            </span>
+          ) : null}
+          {recurrenceLabel(item.recurrence) ? (
+            <span className="repeat-chip">
+              <Icon name="repeat" size={11} />
+              {recurrenceLabel(item.recurrence)}
             </span>
           ) : null}
         </div>

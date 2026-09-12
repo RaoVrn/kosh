@@ -182,7 +182,7 @@ describe('items API', () => {
   it('migrations are tracked and safe to run repeatedly', () => {
     expect(() => migrate(db)).not.toThrow()
     const count = db.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get() as { c: number }
-    expect(Number(count.c)).toBe(5)
+    expect(Number(count.c)).toBe(6)
   })
 
   it('seed data round-trips through the repository into SQLite', () => {

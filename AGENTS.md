@@ -17,27 +17,36 @@ you when necessary.
 
 ```
 ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH + SMART & VOICE CAPTURE
++ INBOX PROCESSING QUEUE + TODAY COMMAND CENTER + RECURRING TASKS
 ```
 
-- **API (`apps/api`)**: `/api/v1/items` CRUD for all five types +
-  FTS5 search + `/api/v1/notifications` + **`/api/v1/capture/interpret`**
-  (AI-suggested, validated `CaptureResult`; never persists) +
-  **`/api/v1/transcribe`** (multipart audio → text; MIME + size limits; no
-  permanent audio storage). Reminder scheduler fires exactly once.
-- **AI layer (`apps/api/src/ai/`)**: `AiProvider` / `TranscriptionProvider`
-  interfaces with one OpenAI-compatible `fetch` implementation; env-only
-  config; graceful 503 when no `AI_API_KEY` (Kosh keeps working, raw capture
-  unaffected).
-- **Mobile (`apps/mobile`)**: 10 screens; Smart Capture + Voice Capture on the
-  Inbox — record via `expo-audio` (permission on tap), transcript editing,
-  editable confirmation preview, Save / Cancel / Save-to-Inbox fallback.
-- **Web (`apps/web`)**: same Smart Capture flow for text; voice via the
-  browser `MediaRecorder` where supported (honest unsupported message
-  otherwise).
-- **Shared (`packages/shared`)**: typed API client (items/search/notifications/
-  capture/transcribe), `ItemsProvider`, `NotificationsProvider`,
-  `useServerSearch`, `useSmartCapture`, types (`CaptureResult`, confidence).
-- No auth, push, recurring reminders, semantic search, or autonomous AI yet.
+- **API (`apps/api`)**: `/api/v1/items` CRUD for all five types + FTS5 search +
+  `/api/v1/notifications` + `/api/v1/capture/interpret` (AI-suggested,
+  validated `CaptureResult`; never persists) + `/api/v1/transcribe`
+  (multipart audio → text). Reminder scheduler fires exactly once. Root `.env`
+  auto-loaded on startup (`src/env.ts`).
+- **Recurring tasks**: recurrence (`none|daily|weekly|monthly`) + `recurrenceId`
+  on items (tasks only, validated server-side, migration `006`). Completing a
+  recurring task runs an atomic SQLite transaction
+  (`recurrence/service.ts`): mark done → calculate next occurrence on the
+  local calendar (`recurrence/calculation.ts`, month-end clamped) → create
+  exactly ONE active next occurrence with the same metadata, reminder offset,
+  and series id. Idempotent (done/archived can't re-generate); deleting or
+  archiving never replaces. Clients refresh after completing a recurring task.
+- **Inbox is a processing queue**: quick per-card actions (Process → active,
+  Archive, Convert to task, Open link); editing an inbox item in the detail
+  editor moves it to `active`; the inbox badge counts `status = inbox` live.
+- **Today is the command center**: Overdue → Due today → Up next (deterministic
+  precedence, no duplicates) + unread Reminders + Recently captured; greeting
+  and quick actions (New capture/task/note/idea/learning). Shared logic in
+  `getTodayCommandCenter` (`packages/shared`).
+- **Web**: keyboard shortcuts `N`/`T`/`/` (guarded while typing), Escape closes
+  the detail modal, status chips (incl. archive) in the detail editor.
+- **Mobile**: same processing actions (thumb-friendly), Today sections,
+  status chips in the detail sheet.
+- Mock data is only an explicit seed (`npm run db:seed -w @kosh/api`) and test
+  fixtures.
+- No auth, push, recurring reminders, or semantic search yet.
 - Next milestone: **Phase 8 — Polish and deployment** (see `docs/ROADMAP.md`).
 
 This status section must be updated whenever a milestone completes or the
@@ -209,12 +218,22 @@ without actually running it.**
   `{ "data": … }`; errors are `{ "error": { "message": "…" } }`. ISO-8601 UTC
   strings for all timestamps; the server generates `id`/`createdAt`/`updatedAt`
   (never trust the client's).
+- **Recurrence:** stored as `recurrence_frequency` (`none|daily|weekly|monthly`)
+  - `recurrence_weekdays` (JSON) + `recurrence_month_day` on `items`; tasks
+    only; server-validated; `recurrenceId` links occurrences of one series.
+    Calculation is local-calendar (`recurrence/calculation.ts`); completion is
+    transactional and idempotent (`recurrence/service.ts`).
 - **DB:** use `node:sqlite`. New schema changes = a new numbered SQL file in
   `apps/api/migrations/`, applied once and tracked in `schema_migrations`.
   Prefer additive, non-destructive changes.
 - **Mobile:** plain `StyleSheet` + the shared design-tokens module for the
   dark theme. No UI kit, no state library, no react-navigation (custom
   responsive shell: bottom tabs on mobile, sidebar on desktop).
+  **Platform guards:** the mobile app also runs on web (Expo). Native-only
+  APIs (`expo-notifications` scheduling, permissions, etc.) must be guarded by
+  `Platform.OS` checks — `canUseLocalNotifications(Platform.OS)` in
+  `src/notifications/platform.ts` is the pattern; never call native-only
+  notification APIs on web.
 - **Web:** plain CSS (one `styles.css` mirroring the shared tokens) + small
   React components. No CSS framework, no component library, no router —
   a `NavContext` drives the screens.

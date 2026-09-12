@@ -2,8 +2,10 @@ import { Hono } from 'hono'
 import type { Db } from '../db.js'
 import * as repo from '../items/repo.js'
 import { buildFtsQuery } from '../items/search.js'
+import { completeTask } from '../recurrence/service.js'
 import {
   ValidationError,
+  assertRecurrenceRules,
   assertReminderRules,
   assertTypeRules,
   isItemStatus,
@@ -110,8 +112,28 @@ export function itemsRoutes(db: Db): Hono {
     const effectiveReminder =
       patch.reminderAt !== undefined ? patch.reminderAt : existing.reminderAt
     const effectiveUrl = patch.url !== undefined ? patch.url : existing.url
+    const effectiveRecurrence =
+      patch.recurrence !== undefined
+        ? patch.recurrence
+        : patch.type !== undefined && patch.type !== 'task'
+          ? null
+          : existing.recurrence
     assertReminderRules(effectiveType, effectiveDue, effectiveReminder)
     assertTypeRules(effectiveType, effectiveUrl)
+    assertRecurrenceRules(effectiveType, effectiveRecurrence ?? null, effectiveDue ?? null)
+
+    if (
+      patch.status === 'done' &&
+      existing.type === 'task' &&
+      existing.status !== 'done' &&
+      existing.status !== 'archived' &&
+      existing.recurrence !== null &&
+      existing.recurrence !== undefined &&
+      existing.recurrence.frequency !== 'none'
+    ) {
+      const result = completeTask(db, existing)
+      return c.json({ data: result.completed })
+    }
 
     const item = repo.updateItem(db, id, patch)
     if (!item) return c.json({ error: { message: 'Item not found' } }, 404)

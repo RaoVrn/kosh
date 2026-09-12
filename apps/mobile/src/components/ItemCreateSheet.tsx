@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import type { ItemStatus, ItemType, Priority } from '@kosh/shared'
+import type { ItemStatus, ItemType, Priority, Recurrence } from '@kosh/shared'
 import {
   ITEM_STATUSES,
   PRIORITIES,
@@ -28,6 +28,7 @@ import {
 import { colors, radius, spacing } from '../theme'
 import { Icon } from './Icon'
 import { TagInput } from './TagInput'
+import { RecurrenceControl } from './RecurrenceControl'
 
 interface ItemCreateSheetProps {
   type: ItemType
@@ -44,6 +45,7 @@ export function ItemCreateSheet({ type, onClose }: ItemCreateSheetProps) {
   const [status, setStatus] = useState<ItemStatus>('inbox')
   const [dueAt, setDueAt] = useState<string | null>(null)
   const [reminderAt, setReminderAt] = useState<string | null>(null)
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const isTask = type === 'task'
@@ -75,6 +77,7 @@ export function ItemCreateSheet({ type, onClose }: ItemCreateSheetProps) {
         dueAt: isTask ? dueAt : undefined,
         reminderAt: isTask ? reminderAt : undefined,
         tags: tags.length > 0 ? tags : null,
+        recurrence: isTask ? recurrence : undefined,
       })
       onClose()
     } catch (err) {
@@ -244,6 +247,9 @@ export function ItemCreateSheet({ type, onClose }: ItemCreateSheetProps) {
                     Reminder must not be after the due time.
                   </Text>
                 ) : null}
+
+                <Text style={styles.sectionLabel}>Repeat</Text>
+                <RecurrenceControl value={recurrence} onChange={setRecurrence} />
               </>
             ) : null}
 

@@ -25,6 +25,27 @@ export const ITEM_STATUSES: readonly ItemStatus[] = ['inbox', 'active', 'done', 
 
 export const PRIORITIES: readonly Priority[] = ['low', 'medium', 'high']
 
+export type RecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'monthly'
+
+export const RECURRENCE_FREQUENCIES: readonly RecurrenceFrequency[] = [
+  'none',
+  'daily',
+  'weekly',
+  'monthly',
+]
+
+export const WEEKDAYS: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
+
+export const WEEKDAY_SHORT: readonly string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+export const WEEKDAY_LETTERS: readonly string[] = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+export interface Recurrence {
+  frequency: RecurrenceFrequency
+  weekdays?: number[]
+  dayOfMonth?: number
+}
+
 export interface Item {
   id: string
   type: ItemType
@@ -37,6 +58,8 @@ export interface Item {
   remindedAt?: string | null
   priority?: Priority | null
   tags?: string[] | null
+  recurrence?: Recurrence | null
+  recurrenceId?: string | null
   createdAt: string
   updatedAt: string
   doneAt?: string | null
@@ -79,6 +102,7 @@ export interface CaptureResult {
   dueAt: string | null
   reminderAt: string | null
   tags: string[] | null
+  recurrence?: Recurrence | null
   confidence: CaptureConfidence
 }
 

@@ -8,6 +8,7 @@ import {
   formatReminderAt,
   formatTime,
   fromDatetimeLocalValue,
+  greetingForHour,
   isDueToday,
   isOverdue,
   isTomorrow,
@@ -100,5 +101,14 @@ describe('time utils', () => {
     const roundTripped = fromDatetimeLocalValue(toDatetimeLocalValue(original))
     expect(new Date(roundTripped).getHours()).toBe(18)
     expect(new Date(roundTripped).getMinutes()).toBe(30)
+  })
+
+  it('greetingForHour picks the right greeting', () => {
+    expect(greetingForHour(6)).toBe('Good morning')
+    expect(greetingForHour(11)).toBe('Good morning')
+    expect(greetingForHour(12)).toBe('Good afternoon')
+    expect(greetingForHour(16)).toBe('Good afternoon')
+    expect(greetingForHour(17)).toBe('Good evening')
+    expect(greetingForHour(3)).toBe('Good evening')
   })
 })

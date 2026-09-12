@@ -1,9 +1,11 @@
 import type { Db } from '../db.js'
-import type { Item, ItemStatus, ItemType, Priority } from '@kosh/shared'
+import type { Item, ItemStatus, ItemType, Priority, Recurrence } from '@kosh/shared'
 import { uid } from '@kosh/shared'
 
 const COLUMNS =
-  'id, type, status, title, body, url, due_at, reminder_at, reminded_at, priority, tags, created_at, updated_at, done_at'
+  'id, type, status, title, body, url, due_at, reminder_at, reminded_at, priority, tags, ' +
+  'recurrence_frequency, recurrence_weekdays, recurrence_month_day, recurrence_id, ' +
+  'created_at, updated_at, done_at'
 
 export interface ItemRow {
   id: string
@@ -17,6 +19,10 @@ export interface ItemRow {
   reminded_at: string | null
   priority: string | null
   tags: string | null
+  recurrence_frequency: string | null
+  recurrence_weekdays: string | null
+  recurrence_month_day: number | null
+  recurrence_id: string | null
   created_at: string
   updated_at: string
   done_at: string | null
@@ -32,6 +38,8 @@ export interface CreateItemData {
   dueAt?: string | null
   reminderAt?: string | null
   tags?: string[] | null
+  recurrence?: Recurrence | null
+  recurrenceId?: string | null
 }
 
 export type UpdateItemData = Partial<CreateItemData>
@@ -49,6 +57,27 @@ export interface SearchItemFilters {
   query: string
   limit?: number
   offset?: number
+}
+
+function parseRecurrence(row: ItemRow): Recurrence | null {
+  const frequency = row.recurrence_frequency
+  if (!frequency || frequency === 'none') return null
+  if (frequency === 'daily') return { frequency: 'daily' }
+  if (frequency === 'monthly') {
+    return { frequency: 'monthly', dayOfMonth: row.recurrence_month_day ?? 1 }
+  }
+  let weekdays: number[] = []
+  if (row.recurrence_weekdays) {
+    try {
+      const parsed: unknown = JSON.parse(row.recurrence_weekdays)
+      if (Array.isArray(parsed)) {
+        weekdays = parsed.filter((d): d is number => typeof d === 'number')
+      }
+    } catch {
+      weekdays = []
+    }
+  }
+  return { frequency: 'weekly', weekdays }
 }
 
 function toItem(row: ItemRow): Item {
@@ -76,13 +105,37 @@ function toItem(row: ItemRow): Item {
     remindedAt: row.reminded_at,
     priority: row.priority as Priority | null,
     tags,
+    recurrence: parseRecurrence(row),
+    recurrenceId: row.recurrence_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     doneAt: row.done_at,
   }
 }
 
-function rowValues(item: Item): (string | null)[] {
+function recurrenceColumns(item: Item): {
+  frequency: string
+  weekdays: string | null
+  monthDay: number | null
+  id: string | null
+} {
+  const rec = item.recurrence
+  if (!rec || rec.frequency === 'none') {
+    return { frequency: 'none', weekdays: null, monthDay: null, id: item.recurrenceId ?? null }
+  }
+  return {
+    frequency: rec.frequency,
+    weekdays:
+      rec.frequency === 'weekly' && rec.weekdays && rec.weekdays.length > 0
+        ? JSON.stringify(rec.weekdays)
+        : null,
+    monthDay: rec.frequency === 'monthly' ? (rec.dayOfMonth ?? 1) : null,
+    id: item.recurrenceId ?? null,
+  }
+}
+
+function rowValues(item: Item): (string | number | null)[] {
+  const rec = recurrenceColumns(item)
   return [
     item.id,
     item.type,
@@ -95,6 +148,10 @@ function rowValues(item: Item): (string | null)[] {
     item.remindedAt ?? null,
     item.priority ?? null,
     item.tags && item.tags.length > 0 ? JSON.stringify(item.tags) : null,
+    rec.frequency,
+    rec.weekdays,
+    rec.monthDay,
+    rec.id,
     item.createdAt,
     item.updatedAt,
     item.doneAt ?? null,
@@ -103,13 +160,14 @@ function rowValues(item: Item): (string | null)[] {
 
 export function insertItem(db: Db, item: Item): Item {
   db.prepare(
-    `INSERT INTO items (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO items (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(...rowValues(item))
   return item
 }
 
 export function createItem(db: Db, data: CreateItemData): Item {
   const now = new Date().toISOString()
+  const recurrence = data.recurrence ?? null
   const item: Item = {
     id: uid(),
     type: data.type,
@@ -122,6 +180,9 @@ export function createItem(db: Db, data: CreateItemData): Item {
     remindedAt: null,
     priority: data.priority,
     tags: data.tags && data.tags.length > 0 ? data.tags : null,
+    recurrence,
+    recurrenceId:
+      recurrence && recurrence.frequency !== 'none' ? uid() : (data.recurrenceId ?? null),
     createdAt: now,
     updatedAt: now,
     doneAt: null,
@@ -205,21 +266,34 @@ export function updateItem(db: Db, id: string, patch: UpdateItemData): Item | nu
   if (patch.status !== undefined) next.status = patch.status
   if (patch.priority !== undefined) next.priority = patch.priority
   if (patch.dueAt !== undefined) next.dueAt = patch.dueAt
-  if (patch.reminderAt !== undefined) next.reminderAt = patch.reminderAt
   if (patch.reminderAt !== undefined) {
     next.reminderAt = patch.reminderAt
     next.remindedAt = null
   }
   if (patch.tags !== undefined) next.tags = patch.tags && patch.tags.length > 0 ? patch.tags : null
+  if (patch.recurrence !== undefined) {
+    next.recurrence = patch.recurrence
+    if (patch.recurrence && patch.recurrence.frequency !== 'none') {
+      next.recurrenceId = next.recurrenceId ?? uid()
+    }
+  }
+
+  if (next.type !== 'task') {
+    next.recurrence = null
+    next.recurrenceId = null
+  }
 
   if (patch.status !== undefined) {
     next.doneAt = patch.status === 'done' ? new Date().toISOString() : null
   }
   next.updatedAt = new Date().toISOString()
 
+  const rec = recurrenceColumns(next)
   db.prepare(
     `UPDATE items SET type = ?, status = ?, title = ?, body = ?, url = ?, due_at = ?,
-      reminder_at = ?, reminded_at = ?, priority = ?, tags = ?, updated_at = ?, done_at = ? WHERE id = ?`,
+      reminder_at = ?, reminded_at = ?, priority = ?, tags = ?,
+      recurrence_frequency = ?, recurrence_weekdays = ?, recurrence_month_day = ?, recurrence_id = ?,
+      updated_at = ?, done_at = ? WHERE id = ?`,
   ).run(
     next.type,
     next.status,
@@ -231,6 +305,10 @@ export function updateItem(db: Db, id: string, patch: UpdateItemData): Item | nu
     next.remindedAt ?? null,
     next.priority ?? null,
     next.tags && next.tags.length > 0 ? JSON.stringify(next.tags) : null,
+    rec.frequency,
+    rec.weekdays,
+    rec.monthDay,
+    rec.id,
     next.updatedAt,
     next.doneAt ?? null,
     id,

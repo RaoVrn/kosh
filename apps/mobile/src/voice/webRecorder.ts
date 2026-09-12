@@ -13,7 +13,10 @@ export interface WebMediaRecorderLike {
 
 export interface WebRecorderDeps {
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>
-  MediaRecorderCtor: new (stream: MediaStream, options?: { mimeType?: string }) => WebMediaRecorderLike
+  MediaRecorderCtor: new (
+    stream: MediaStream,
+    options?: { mimeType?: string },
+  ) => WebMediaRecorderLike
 }
 
 function defaultGetUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {

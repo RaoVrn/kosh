@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { CaptureResult, Item, ItemType, Priority, ItemStatus } from '../index'
+import type { CaptureResult, Item, ItemType, Priority, ItemStatus, Recurrence } from '../index'
 import type { TranscribeFileInput } from '../api/itemsApi'
 import { errorMessage } from '../api/itemsApi'
 import { createItemsApi, DEFAULT_API_BASE_URL } from '../api/itemsApi'
@@ -16,6 +16,7 @@ export interface ItemPatch {
   dueAt?: string | null
   reminderAt?: string | null
   tags?: string[]
+  recurrence?: Recurrence | null
 }
 
 export interface ItemInput {
@@ -28,6 +29,7 @@ export interface ItemInput {
   dueAt?: string | null
   reminderAt?: string | null
   tags?: string[] | null
+  recurrence?: Recurrence | null
 }
 
 export interface SearchQuery {
@@ -102,6 +104,7 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
           dueAt: input.dueAt ?? null,
           reminderAt: input.reminderAt ?? null,
           tags: input.tags ?? null,
+          recurrence: input.recurrence ?? null,
         })
         setItems((prev) => [item, ...prev.filter((i) => i.id !== item.id)])
         return item
@@ -117,13 +120,21 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
     async (id: string, patch: ItemPatch) => {
       setError(null)
       try {
+        const current = items.find((i) => i.id === id)
+        const completesRecurring =
+          patch.status === 'done' &&
+          current !== undefined &&
+          current.recurrence !== null &&
+          current.recurrence !== undefined &&
+          current.recurrence.frequency !== 'none'
         const item = await client.updateItem(id, patch)
         setItems((prev) => prev.map((i) => (i.id === id ? item : i)))
+        if (completesRecurring) void refresh()
       } catch (err) {
         setError(errorMessage(err, 'Could not update the item'))
       }
     },
-    [client],
+    [client, items, refresh],
   )
 
   const toggleDone = useCallback(
@@ -135,11 +146,19 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
       try {
         const item = await client.updateItem(id, { status: next })
         setItems((prev) => prev.map((i) => (i.id === id ? item : i)))
+        if (
+          next === 'done' &&
+          current.recurrence !== null &&
+          current.recurrence !== undefined &&
+          current.recurrence.frequency !== 'none'
+        ) {
+          void refresh()
+        }
       } catch (err) {
         setError(errorMessage(err, 'Could not update the task'))
       }
     },
-    [client, items],
+    [client, items, refresh],
   )
 
   const removeItem = useCallback(

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Linking, StyleSheet, Text, View } from 'react-native'
 import type { TextInput } from 'react-native'
 import { colors, layout, spacing } from '../theme'
 import { errorMessage, useItems } from '@kosh/shared'
+import type { Item } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { PageHeader } from '../components/PageHeader'
 import { CaptureInput } from '../components/CaptureInput'
@@ -17,7 +18,7 @@ interface Feedback {
 }
 
 export function InboxScreen() {
-  const { items, addItem, toggleDone } = useItems()
+  const { items, addItem, toggleDone, updateItem } = useItems()
   const { openItem, captureFocusRequest } = useNav()
   const inputRef = useRef<TextInput>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -70,6 +71,22 @@ export function InboxScreen() {
     showFeedback('Added')
   }
 
+  const processItem = (item: Item) => {
+    void updateItem(item.id, { status: 'active' })
+  }
+
+  const archiveItem = (item: Item) => {
+    void updateItem(item.id, { status: 'archived' })
+  }
+
+  const convertToTask = (item: Item) => {
+    void updateItem(item.id, { type: 'task' })
+  }
+
+  const openLink = (item: Item) => {
+    if (item.url) Linking.openURL(item.url)
+  }
+
   return (
     <View style={styles.root}>
       <View style={styles.top}>
@@ -100,14 +117,18 @@ export function InboxScreen() {
             highlighted={item.id === highlightId}
             onPress={() => openItem(item.id)}
             onToggleDone={item.type === 'task' ? () => toggleDone(item.id) : undefined}
+            onProcess={() => processItem(item)}
+            onArchive={() => archiveItem(item)}
+            onConvertToTask={item.type !== 'task' ? () => convertToTask(item) : undefined}
+            onOpenLink={item.type === 'link' && item.url ? () => openLink(item) : undefined}
           />
         )}
         contentContainerStyle={styles.listInner}
         ListEmptyComponent={
           <EmptyState
             icon="inbox"
-            title="Nothing here yet."
-            message="Capture something and Kosh will keep it safe."
+            title="Nothing waiting."
+            message="Capture something and it will land here."
           />
         }
         keyboardShouldPersistTaps="handled"

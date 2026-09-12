@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import type { CaptureResult, ItemType, Priority } from '@kosh/shared'
+import type { CaptureResult, ItemType, Priority, Recurrence } from '@kosh/shared'
 import {
   ITEM_TYPES,
   PRIORITIES,
@@ -24,6 +24,7 @@ import {
 } from '@kosh/shared'
 import { colors, radius, spacing } from '../theme'
 import { TagInput } from './TagInput'
+import { RecurrenceControl } from './RecurrenceControl'
 
 interface CapturePreviewSheetProps {
   result: CaptureResult
@@ -49,6 +50,7 @@ export function CapturePreviewSheet({
   const [dueAt, setDueAt] = useState<string | null>(result.dueAt)
   const [reminderAt, setReminderAt] = useState<string | null>(result.reminderAt)
   const [tags, setTags] = useState<string[]>(result.tags ?? [])
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(result.recurrence ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,6 +74,7 @@ export function CapturePreviewSheet({
         dueAt: isTask ? dueAt : undefined,
         reminderAt: isTask ? reminderAt : undefined,
         tags: tags.length > 0 ? tags : null,
+        recurrence: isTask ? recurrence : null,
       })
       onSave()
     } catch (err) {
@@ -185,41 +188,48 @@ export function CapturePreviewSheet({
             ) : null}
 
             {isTask ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Due</Text>
-                <View style={styles.chipRow}>
-                  <Chip label="None" active={!dueAt} onPress={() => setDueAt(null)} />
-                  <Chip
-                    label="Today"
-                    active={dueAt === endOfDayFromNow(0)}
-                    onPress={() => setDueAt(endOfDayFromNow(0))}
-                  />
-                  <Chip
-                    label="Tomorrow"
-                    active={dueAt === endOfDayFromNow(1)}
-                    onPress={() => setDueAt(endOfDayFromNow(1))}
-                  />
+              <>
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Due</Text>
+                  <View style={styles.chipRow}>
+                    <Chip label="None" active={!dueAt} onPress={() => setDueAt(null)} />
+                    <Chip
+                      label="Today"
+                      active={dueAt === endOfDayFromNow(0)}
+                      onPress={() => setDueAt(endOfDayFromNow(0))}
+                    />
+                    <Chip
+                      label="Tomorrow"
+                      active={dueAt === endOfDayFromNow(1)}
+                      onPress={() => setDueAt(endOfDayFromNow(1))}
+                    />
+                  </View>
+                  <Text style={styles.sectionLabel}>Reminder</Text>
+                  <View style={styles.chipRow}>
+                    <Chip label="None" active={!reminderAt} onPress={() => setReminderAt(null)} />
+                    <Chip
+                      label="In 1 hour"
+                      active={false}
+                      onPress={() => setReminderAt(new Date(Date.now() + 3600_000).toISOString())}
+                    />
+                    <Chip
+                      label="Today 9 AM"
+                      active={reminderAt === atTimeOnDay(0, 9, 0)}
+                      onPress={() => setReminderAt(atTimeOnDay(0, 9, 0))}
+                    />
+                  </View>
+                  {reminderConflict ? (
+                    <Text style={[styles.meta, styles.warning]}>
+                      Reminder must not be after the due time.
+                    </Text>
+                  ) : null}
                 </View>
-                <Text style={styles.sectionLabel}>Reminder</Text>
-                <View style={styles.chipRow}>
-                  <Chip label="None" active={!reminderAt} onPress={() => setReminderAt(null)} />
-                  <Chip
-                    label="In 1 hour"
-                    active={false}
-                    onPress={() => setReminderAt(new Date(Date.now() + 3600_000).toISOString())}
-                  />
-                  <Chip
-                    label="Today 9 AM"
-                    active={reminderAt === atTimeOnDay(0, 9, 0)}
-                    onPress={() => setReminderAt(atTimeOnDay(0, 9, 0))}
-                  />
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Repeat</Text>
+                  <RecurrenceControl value={recurrence} onChange={setRecurrence} />
                 </View>
-                {reminderConflict ? (
-                  <Text style={[styles.meta, styles.warning]}>
-                    Reminder must not be after the due time.
-                  </Text>
-                ) : null}
-              </View>
+              </>
             ) : null}
 
             {error ? <Text style={[styles.meta, styles.error]}>{error}</Text> : null}

@@ -70,6 +70,29 @@ Core MVP (the initial build):
 The user is **never required** to choose a category when capturing. Everything
 starts as an untagged inbox item; type/status can be changed or inferred later.
 
+### The everyday loop
+
+```
+CAPTURE → INBOX → PROCESS → TODAY → DO → COMPLETE → REMEMBER
+```
+
+- **Capture** — text, voice, or Smart Capture; everything lands in the Inbox
+  first.
+- **Inbox** is a processing queue: Process (→ active), Archive, Convert to
+  task, Open link, or edit — editing an inbox item moves it out of the Inbox.
+- **Today** is the daily command center: Overdue → Due today → Up next, plus
+  unread reminders and recently captured items, with quick actions for new
+  captures/tasks/notes/ideas/learning.
+- Completing a task moves it out of active Today sections; reopening returns
+  it; reminders and notifications keep the loop closed.
+- **Recurring tasks** repeat automatically: does not repeat / every day /
+  every week on selected weekdays / every month on a chosen day. Completing
+  the current occurrence marks it done and creates exactly ONE next active
+  occurrence (same time, same reminder offset) — nothing is pre-generated,
+  so Today only ever shows the relevant occurrence. Completed occurrences
+  stay in history and remain searchable. Archive or delete a recurring task
+  and the series ends there.
+
 ### Five content types
 
 Kosh stores everything as one of five first-class content types, all carried by

@@ -1135,3 +1135,111 @@ textarea {
 .original-note {
   overflow-wrap: anywhere;
 }
+
+/* ---------- inbox processing actions ---------- */
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.card-action {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+}
+
+.card-action:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.card-action-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.card-action-primary:hover {
+  background: var(--accent-muted);
+}
+
+/* ---------- today quick actions ---------- */
+
+.today-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.today-actions .btn-secondary {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* ---------- recurrence controls + indicator ---------- */
+
+.recurrence-control {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weekday-row {
+  display: flex;
+  gap: 6px;
+}
+
+.weekday {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.weekday:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.weekday.selected {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.monthly-day {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.monthly-day input {
+  width: 72px;
+}
+
+.repeat-chip,
+.reminder-chip,
+.due-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.repeat-note {
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 2px;
+}

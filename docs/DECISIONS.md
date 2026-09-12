@@ -469,3 +469,73 @@ item)`. The MVP implementation persists a row in the `notifications` table
   future feature, not a foundation requirement.
 - **Why:** Keeps Phase 1–6 simple. Revisit once captures demonstrably lose to
   connectivity.
+
+### P5 — Inbox processing is explicit user intent
+
+- **Status:** Accepted (Phase 9)
+- **Decision:** An item leaves the Inbox (`status = inbox`) only when the user
+  acts on it: the Process quick action, archiving, or editing it in the detail
+  editor/sheet (any edit transitions `inbox → active`). Nothing is bulk-marked
+  active automatically.
+- **Why:** "Everything lands here first" must stay true — the queue empties by
+  processing, not by drift. Editing is deliberate enough to count as intent.
+
+### P6 — Today precedence: overdue → due today → up next
+
+- **Status:** Accepted (Phase 9)
+- **Decision:** `getTodayCommandCenter` (shared, pure) assigns each pending task
+  to exactly one active section: Overdue > Due today > Up next, by priority
+  then due date. Completed/archived tasks never appear. Local calendar day and
+  existing `isOverdue`/`isToday` utilities define the boundaries; the API stays
+  the source of persisted timestamps.
+- **Why:** Deterministic sections with no duplicates keep the command center
+  scannable, and the same rules run on web and mobile from one codebase.
+
+### P7 — No dedicated Today API endpoint yet
+
+- **Status:** Accepted (Phase 9)
+- **Decision:** Today derives its sections from the existing items +
+  notifications loaded by the shared providers (client-side grouping, capped
+  lists). No new endpoint, no second data store.
+- **Why:** The full dataset is already in memory on both clients; a dedicated
+  endpoint would be premature optimization at personal-tool scale.
+
+### P8 — Keyboard shortcuts stay minimal on web
+
+- **Status:** Accepted (Phase 9)
+- **Decision:** `N` → capture, `T` → tasks, `/` → search, Escape → close
+  modal. All guarded while typing; no command palette.
+- **Why:** Fast daily use on a laptop without inventing a shortcut system the
+  product doesn't need yet.
+
+### P9 — Recurrence is stored on the item, generated one occurrence at a time
+
+- **Status:** Accepted (Phase 10)
+- **Decision:** Recurrence lives on the task itself
+  (`recurrence_frequency`/`weekdays`/`month_day` + a shared `recurrence_id`
+  series id), not in a separate recurrence table. Completing a recurring task
+  atomically marks it done and inserts exactly ONE next active occurrence;
+  nothing is pre-generated. The client completes via the existing PATCH API.
+- **Why:** The series is just the items table — no extra sync machinery, no
+  thousands of future rows, and completed history is naturally searchable.
+
+### P10 — Local-calendar recurrence calculation with clamped month-ends
+
+- **Status:** Accepted (Phase 10)
+- **Decision:** `nextOccurrenceDue` computes on the user's local calendar
+  components (a local Monday stays Monday across UTC/DST). Monthly uses the
+  stored day-of-month with clamping: Jan 31 → Feb 28/29; the next completion
+  targets day 31 again, so Mar 31 follows. Time-of-day is preserved; a task
+  without a due date cannot be recurring (explicit validation error).
+- **Why:** Deterministic, DST-safe behavior without a date library; clamping is
+  the documented, expected behavior for day-31 patterns.
+
+### P11 — Smart Capture recurrence is validated, never trusted
+
+- **Status:** Accepted (Phase 10)
+- **Decision:** The AI prompt (v2) may suggest `recurrence`, but the server
+  runs it through the same recurrence validation as the item API, drops it
+  when malformed, on non-tasks, or without a due date, and it only persists
+  after the user confirms the preview (which shows the Repeat control).
+- **Why:** AI output is untrusted input; the suggestion-first contract stays
+  intact and voice capture benefits automatically via the shared preview.

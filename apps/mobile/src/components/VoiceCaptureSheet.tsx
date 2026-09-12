@@ -91,8 +91,14 @@ function VoiceCaptureSheetInner({ onClose, onSaved, onRecordAgain }: InnerProps)
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} accessibilityLabel="Close" />
-        <View style={styles.sheet}>{renderStage(flow, handleClose, onRecordAgain, transcript, setTranscript)}</View>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleClose}
+          accessibilityLabel="Close"
+        />
+        <View style={styles.sheet}>
+          {renderStage(flow, handleClose, onRecordAgain, transcript, setTranscript)}
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   )

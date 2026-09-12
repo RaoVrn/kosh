@@ -21,6 +21,7 @@ export type WebIconName =
   | 'sun'
   | 'external-link'
   | 'alert-circle'
+  | 'repeat'
 
 type ScreenIconKey = ScreenName
 
@@ -153,6 +154,7 @@ const PATHS: Record<WebIconName, ReactNode> = {
       <line x1="12" y1="16" x2="12.01" y2="16" />
     </>
   ),
+  repeat: <path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3" />,
 }
 
 interface IconProps {

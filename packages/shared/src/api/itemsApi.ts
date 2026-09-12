@@ -6,6 +6,7 @@ import type {
   ItemType,
   KoshNotification,
   Priority,
+  Recurrence,
 } from '../index'
 
 export interface TranscribeFileInput {
@@ -33,6 +34,7 @@ export interface CreateItemInput {
   dueAt?: string | null
   reminderAt?: string | null
   tags?: string[] | null
+  recurrence?: Recurrence | null
 }
 
 export type UpdateItemInput = Partial<CreateItemInput>

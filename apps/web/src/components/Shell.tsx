@@ -31,6 +31,29 @@ function useIsCompact(): boolean {
 export function Shell() {
   const compact = useIsCompact()
   const { loading, error, refresh } = useItems()
+  const { navigate, requestCaptureFocus } = useNav()
+
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTyping(e.target)) return
+      if (e.key === 'n' || e.key === 'N') {
+        navigate('inbox')
+        requestCaptureFocus()
+      } else if (e.key === 't' || e.key === 'T') {
+        navigate('tasks')
+      } else if (e.key === '/') {
+        e.preventDefault()
+        navigate('search')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [navigate, requestCaptureFocus])
 
   return (
     <div className="shell">

@@ -1,5 +1,6 @@
-import type { CaptureConfidence, CaptureResult, ItemType, Priority } from '@kosh/shared'
+import type { CaptureConfidence, CaptureResult, ItemType, Priority, Recurrence } from '@kosh/shared'
 import { ITEM_TYPES, isValidHttpUrl, PRIORITIES } from '@kosh/shared'
+import { parseRecurrence } from '../../recurrence/validation.js'
 import { CaptureValidationError } from '../types.js'
 
 const MAX_TITLE = 500
@@ -111,6 +112,19 @@ export function validateCaptureOutput(raw: string, originalText: string): Captur
     ? (output.confidence as CaptureConfidence)
     : 'medium'
 
+  let recurrence: Recurrence | null = null
+  if (effectiveType === 'task') {
+    try {
+      const parsed = parseRecurrence(output.recurrence)
+      if (parsed) recurrence = parsed
+    } catch {
+      recurrence = null
+    }
+    if (recurrence && recurrence.frequency !== 'none' && !dueAt) {
+      recurrence = null
+    }
+  }
+
   return {
     type: effectiveType,
     title: title || 'Untitled capture',
@@ -120,6 +134,7 @@ export function validateCaptureOutput(raw: string, originalText: string): Captur
     dueAt,
     reminderAt,
     tags,
+    recurrence,
     confidence: titleFellBack ? 'low' : confidence,
   }
 }

@@ -47,7 +47,7 @@ export function LearningScreen() {
       {isEmpty ? (
         <EmptyState
           icon="book-open"
-          title="Nothing in your backlog"
+          title="No learning items yet."
           message="Add something you want to understand."
         />
       ) : (

@@ -32,29 +32,21 @@ export const initialVoiceFlowState: VoiceFlowState = {
 export function voiceFlowReducer(state: VoiceFlowState, event: VoiceFlowEvent): VoiceFlowState {
   switch (event.type) {
     case 'request':
-      return state.stage === 'idle'
-        ? { stage: 'permission', error: null, seconds: 0 }
-        : state
+      return state.stage === 'idle' ? { stage: 'permission', error: null, seconds: 0 } : state
     case 'permissionDenied':
       return state.stage === 'permission'
         ? { stage: 'error', error: event.error, seconds: 0 }
         : state
     case 'preparing':
-      return state.stage === 'permission'
-        ? { stage: 'preparing', error: null, seconds: 0 }
-        : state
+      return state.stage === 'permission' ? { stage: 'preparing', error: null, seconds: 0 } : state
     case 'prepareFailed':
       return state.stage === 'preparing'
         ? { stage: 'error', error: event.error, seconds: 0 }
         : state
     case 'recordingStarted':
-      return state.stage === 'preparing'
-        ? { stage: 'recording', error: null, seconds: 0 }
-        : state
+      return state.stage === 'preparing' ? { stage: 'recording', error: null, seconds: 0 } : state
     case 'tick':
-      return state.stage === 'recording'
-        ? { ...state, seconds: state.seconds + 1 }
-        : state
+      return state.stage === 'recording' ? { ...state, seconds: state.seconds + 1 } : state
     case 'stopping':
       return state.stage === 'recording'
         ? { stage: 'stopping', error: null, seconds: state.seconds }
@@ -76,7 +68,9 @@ export function voiceFlowReducer(state: VoiceFlowState, event: VoiceFlowEvent): 
         ? { stage: 'error', error: event.error, seconds: 0 }
         : state
     case 'recordingFailed':
-      return state.stage === 'recording' || state.stage === 'stopping' || state.stage === 'uploading'
+      return state.stage === 'recording' ||
+        state.stage === 'stopping' ||
+        state.stage === 'uploading'
         ? { stage: 'error', error: event.error, seconds: 0 }
         : state
     case 'interpreting':

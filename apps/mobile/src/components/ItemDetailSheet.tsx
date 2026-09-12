@@ -10,9 +10,9 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native'
-import { ITEM_TYPES, PRIORITIES } from '@kosh/shared'
+import { ITEM_STATUSES, ITEM_TYPES, PRIORITIES } from '@kosh/shared'
 import { colors, layout, radius, spacing } from '../theme'
-import { priorityLabel, typeLabel } from '@kosh/shared'
+import { priorityLabel, statusLabel, typeLabel } from '@kosh/shared'
 import {
   atTimeOnDay,
   endOfDayFromNow,
@@ -25,10 +25,13 @@ import {
   isTomorrow,
 } from '@kosh/shared'
 import { useItems } from '@kosh/shared'
+import type { ItemPatch, Recurrence } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
 import { TagInput } from './TagInput'
+import { RecurrenceControl } from './RecurrenceControl'
+import { useCallback } from 'react'
 
 export function ItemDetailSheet() {
   const { selectedItemId, closeItem } = useNav()
@@ -37,6 +40,16 @@ export function ItemDetailSheet() {
   const isDesktop = width >= layout.desktopBreakpoint
 
   const item = selectedItemId ? getItem(selectedItemId) : undefined
+
+  const save = useCallback(
+    (patch: ItemPatch) => {
+      if (!item) return
+      const processPatch = item.status === 'inbox' ? { status: 'active' as const } : {}
+      void updateItem(item.id, { ...patch, ...processPatch })
+    },
+    [item, updateItem],
+  )
+
   if (!item) return null
 
   const done = item.status === 'done'
@@ -72,7 +85,7 @@ export function ItemDetailSheet() {
 
             <TextInput
               value={item.title}
-              onChangeText={(t) => updateItem(item.id, { title: t })}
+              onChangeText={(t) => save({ title: t })}
               style={styles.titleInput}
               multiline
               placeholder="Title"
@@ -82,7 +95,7 @@ export function ItemDetailSheet() {
 
             <TextInput
               value={item.body ?? ''}
-              onChangeText={(b) => updateItem(item.id, { body: b })}
+              onChangeText={(b) => save({ body: b })}
               style={styles.bodyInput}
               multiline
               placeholder="Add details…"
@@ -95,7 +108,7 @@ export function ItemDetailSheet() {
                 <Text style={styles.sectionLabel}>Link</Text>
                 <TextInput
                   value={item.url ?? ''}
-                  onChangeText={(u) => updateItem(item.id, { url: u })}
+                  onChangeText={(u) => save({ url: u })}
                   style={styles.urlInput}
                   placeholder="https://…"
                   placeholderTextColor={colors.textFaint}
@@ -115,7 +128,7 @@ export function ItemDetailSheet() {
               <Text style={styles.sectionLabel}>Tags</Text>
               <TagInput
                 tags={item.tags ?? []}
-                onChange={(tags) => updateItem(item.id, { tags })}
+                onChange={(tags) => save({ tags })}
                 accessibilityLabel="Tags"
               />
             </View>
@@ -128,7 +141,7 @@ export function ItemDetailSheet() {
                     key={t}
                     label={typeLabel[t]}
                     active={item.type === t}
-                    onPress={() => updateItem(item.id, { type: t })}
+                    onPress={() => save({ type: t })}
                   />
                 ))}
               </View>
@@ -140,36 +153,56 @@ export function ItemDetailSheet() {
                 <Chip
                   label="None"
                   active={!item.priority}
-                  onPress={() => updateItem(item.id, { priority: null })}
+                  onPress={() => save({ priority: null })}
                 />
                 {PRIORITIES.map((p) => (
                   <Chip
                     key={p}
                     label={priorityLabel[p]}
                     active={item.priority === p}
-                    onPress={() => updateItem(item.id, { priority: p })}
+                    onPress={() => save({ priority: p })}
                   />
                 ))}
               </View>
             </View>
 
             <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Status</Text>
+              <View style={styles.chipRow}>
+                {ITEM_STATUSES.map((s) => (
+                  <Chip
+                    key={s}
+                    label={statusLabel[s]}
+                    active={item.status === s}
+                    onPress={() => updateItem(item.id, { status: s })}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {item.type === 'task' ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Repeat</Text>
+                <RecurrenceControl
+                  value={item.recurrence ?? null}
+                  onChange={(recurrence: Recurrence | null) => save({ recurrence })}
+                />
+              </View>
+            ) : null}
+
+            <View style={styles.section}>
               <Text style={styles.sectionLabel}>Due</Text>
               <View style={styles.chipRow}>
-                <Chip
-                  label="None"
-                  active={!item.dueAt}
-                  onPress={() => updateItem(item.id, { dueAt: null })}
-                />
+                <Chip label="None" active={!item.dueAt} onPress={() => save({ dueAt: null })} />
                 <Chip
                   label="Today"
                   active={item.dueAt ? isToday(item.dueAt) : false}
-                  onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(0) })}
+                  onPress={() => save({ dueAt: endOfDayFromNow(0) })}
                 />
                 <Chip
                   label="Tomorrow"
                   active={item.dueAt ? isTomorrow(item.dueAt) : false}
-                  onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(1) })}
+                  onPress={() => save({ dueAt: endOfDayFromNow(1) })}
                 />
                 <Chip
                   label="In a week"
@@ -178,7 +211,7 @@ export function ItemDetailSheet() {
                       ? isSameDay(new Date(item.dueAt), new Date(endOfDayFromNow(7)))
                       : false
                   }
-                  onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(7) })}
+                  onPress={() => save({ dueAt: endOfDayFromNow(7) })}
                 />
               </View>
               {item.dueAt ? (
@@ -195,13 +228,13 @@ export function ItemDetailSheet() {
                   <Chip
                     label="None"
                     active={!item.reminderAt}
-                    onPress={() => updateItem(item.id, { reminderAt: null })}
+                    onPress={() => save({ reminderAt: null })}
                   />
                   <Chip
                     label="In 1 hour"
                     active={false}
                     onPress={() =>
-                      updateItem(item.id, {
+                      save({
                         reminderAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
                       })
                     }
@@ -213,7 +246,7 @@ export function ItemDetailSheet() {
                         ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(0, 9, 0)))
                         : false
                     }
-                    onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(0, 9, 0) })}
+                    onPress={() => save({ reminderAt: atTimeOnDay(0, 9, 0) })}
                   />
                   <Chip
                     label="Tomorrow 9 AM"
@@ -222,7 +255,7 @@ export function ItemDetailSheet() {
                         ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(1, 9, 0)))
                         : false
                     }
-                    onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(1, 9, 0) })}
+                    onPress={() => save({ reminderAt: atTimeOnDay(1, 9, 0) })}
                   />
                 </View>
                 {item.reminderAt ? (

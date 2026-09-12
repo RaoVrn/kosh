@@ -285,6 +285,54 @@ describe('Kosh web app', () => {
     expect(posted.reminderAt).toBeTruthy()
   })
 
+  it('creates a recurring task and shows the repeat indicator', async () => {
+    const fetchMock = createApiFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Tasks' }))
+    await screen.findByRole('heading', { name: 'Tasks', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'New task' }))
+    await screen.findByRole('dialog', { name: 'New task' })
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Study DSA' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Every week' }))
+    fireEvent.click(screen.getByRole('button', { name: /Monday/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Task' }))
+
+    expect(await screen.findByText('Study DSA')).toBeTruthy()
+    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+    const posted = JSON.parse(String(postCall?.[1]?.body)) as { recurrence: unknown }
+    expect(posted.recurrence).toEqual({ frequency: 'weekly', weekdays: [1] })
+  })
+
+  it('shows a recurrence indicator on recurring task cards', async () => {
+    vi.stubGlobal(
+      'fetch',
+      createApiFetchMock([
+        {
+          id: 'rec1',
+          type: 'task' as const,
+          status: 'active' as const,
+          title: 'Pay rent',
+          dueAt: new Date(Date.now() + 86400000).toISOString(),
+          priority: 'high' as const,
+          tags: null,
+          recurrence: { frequency: 'monthly', dayOfMonth: 1 },
+          recurrenceId: 'series-1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ]),
+    )
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    expect(await screen.findByText('Pay rent')).toBeTruthy()
+    expect(screen.getByText('Monthly on 1')).toBeTruthy()
+  })
+
   it('shows overdue and today groups on the Today screen', async () => {
     const now = Date.now()
     const seed = [
@@ -318,7 +366,7 @@ describe('Kosh web app', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
 
     expect(await screen.findByRole('heading', { name: 'Overdue', level: 2 })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Today', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Due today', level: 2 })).toBeTruthy()
     expect(screen.getByText('Overdue report')).toBeTruthy()
     expect(screen.getByText('Due later today')).toBeTruthy()
   })
@@ -615,5 +663,164 @@ describe('Kosh web app', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Voice capture' }))
 
     expect(await screen.findByText("Voice capture isn't supported in this browser.")).toBeTruthy()
+  })
+
+  it('processes inbox items: Process removes it from the Inbox and updates the count', async () => {
+    const fetchMock = createApiFetchMock([
+      {
+        id: 'in1',
+        type: 'note' as const,
+        status: 'inbox' as const,
+        title: 'Unprocessed capture',
+        priority: null,
+        tags: null,
+        createdAt: '2026-09-11T08:00:00.000Z',
+        updatedAt: '2026-09-11T08:00:00.000Z',
+      },
+    ])
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    const card = await screen.findByText('Unprocessed capture')
+    fireEvent.click(screen.getByRole('button', { name: 'Process' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Unprocessed capture')).toBeNull()
+    })
+    expect(screen.getByText('Nothing waiting.')).toBeTruthy()
+  })
+
+  it('archives an inbox item and converts to task in place', async () => {
+    const fetchMock = createApiFetchMock([
+      {
+        id: 'in2',
+        type: 'idea' as const,
+        status: 'inbox' as const,
+        title: 'An idea to archive',
+        priority: null,
+        tags: null,
+        createdAt: '2026-09-11T08:00:00.000Z',
+        updatedAt: '2026-09-11T08:00:00.000Z',
+      },
+      {
+        id: 'in3',
+        type: 'idea' as const,
+        status: 'inbox' as const,
+        title: 'An idea to convert',
+        priority: null,
+        tags: null,
+        createdAt: '2026-09-11T08:00:00.000Z',
+        updatedAt: '2026-09-11T08:00:00.000Z',
+      },
+    ])
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByText('An idea to archive')
+    const archiveButton = screen.getAllByRole('button', { name: 'Archive' })[0]
+    expect(archiveButton).toBeTruthy()
+    fireEvent.click(archiveButton!)
+    await waitFor(() => {
+      expect(screen.queryByText('An idea to archive')).toBeNull()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Convert to task' }))
+    await waitFor(() => {
+      const patchCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+      const last = patchCalls[patchCalls.length - 1]
+      const patched = JSON.parse(String(last?.[1]?.body)) as { type: string }
+      expect(patched.type).toBe('task')
+    })
+    expect(screen.getByText('An idea to convert')).toBeTruthy()
+  })
+
+  it('renders the Today command center sections', async () => {
+    const now = Date.now()
+    const seed = [
+      {
+        id: 'tod-over',
+        type: 'task' as const,
+        status: 'active' as const,
+        title: 'Overdue task',
+        dueAt: new Date(now - 86_400_000).toISOString(),
+        priority: 'high' as const,
+        tags: null,
+        createdAt: new Date(now - 172_800_000).toISOString(),
+        updatedAt: new Date(now - 172_800_000).toISOString(),
+      },
+      {
+        id: 'tod-today',
+        type: 'task' as const,
+        status: 'active' as const,
+        title: 'Due later today',
+        dueAt: new Date(now + 3_600_000).toISOString(),
+        priority: 'medium' as const,
+        tags: null,
+        createdAt: new Date(now - 86_400_000).toISOString(),
+        updatedAt: new Date(now - 86_400_000).toISOString(),
+      },
+      {
+        id: 'tod-next',
+        type: 'task' as const,
+        status: 'active' as const,
+        title: 'High priority no due date',
+        priority: 'high' as const,
+        tags: null,
+        createdAt: new Date(now - 86_400_000).toISOString(),
+        updatedAt: new Date(now - 86_400_000).toISOString(),
+      },
+      {
+        id: 'tod-inbox',
+        type: 'note' as const,
+        status: 'inbox' as const,
+        title: 'Recently captured note',
+        priority: null,
+        tags: null,
+        createdAt: new Date(now - 3_600_000).toISOString(),
+        updatedAt: new Date(now - 3_600_000).toISOString(),
+      },
+    ]
+    const notifications = [
+      {
+        id: 'n1',
+        itemId: null,
+        type: 'reminder' as const,
+        title: 'Unread reminder',
+        body: null,
+        createdAt: new Date(now - 60_000).toISOString(),
+        readAt: null,
+      },
+    ]
+    vi.stubGlobal('fetch', createApiFetchMock(seed, notifications))
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+
+    expect(await screen.findByRole('heading', { name: 'Overdue', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Due today', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Up next', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Reminders', level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Recently captured', level: 2 })).toBeTruthy()
+    expect(screen.getByText('Overdue task')).toBeTruthy()
+    expect(screen.getByText('Due later today')).toBeTruthy()
+    expect(screen.getByText('High priority no due date')).toBeTruthy()
+    expect(screen.getByText('Unread reminder')).toBeTruthy()
+    expect(screen.getByText('Recently captured note')).toBeTruthy()
+  })
+
+  it('supports keyboard shortcuts when not typing', async () => {
+    vi.stubGlobal('fetch', createApiFetchMock())
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.keyDown(window, { key: 't' })
+    expect(await screen.findByRole('heading', { name: 'Tasks', level: 1 })).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: '/' })
+    expect(await screen.findByRole('heading', { name: 'Search', level: 1 })).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: 'n' })
+    expect(await screen.findByRole('heading', { name: 'Inbox', level: 1 })).toBeTruthy()
   })
 })

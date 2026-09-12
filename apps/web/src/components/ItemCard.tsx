@@ -6,6 +6,7 @@ import {
   learningStatusLabel,
   priorityColors,
   priorityLabel,
+  recurrenceLabel,
   relativeTime,
   typeLabel,
 } from '@kosh/shared'
@@ -18,15 +19,29 @@ interface ItemCardProps {
   onPress: () => void
   onToggleDone?: () => void
   highlighted?: boolean
+  onProcess?: () => void
+  onArchive?: () => void
+  onConvertToTask?: () => void
+  onOpenLink?: () => void
 }
 
-export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardProps) {
+export function ItemCard({
+  item,
+  onPress,
+  onToggleDone,
+  highlighted,
+  onProcess,
+  onArchive,
+  onConvertToTask,
+  onOpenLink,
+}: ItemCardProps) {
   const done = item.status === 'done'
   const showCheck = item.type === 'task' && onToggleDone !== undefined
   const isLearning = item.type === 'learning'
   const isLink = item.type === 'link'
   const domain = isLink && item.url ? domainFromUrl(item.url) : null
   const showTags = item.type !== 'task' && (item.tags?.length ?? 0) > 0
+  const hasActions = Boolean(onProcess || onArchive || onConvertToTask || onOpenLink)
 
   return (
     <article
@@ -90,9 +105,65 @@ export function ItemCard({ item, onPress, onToggleDone, highlighted }: ItemCardP
               color={isOverdue(item.dueAt) ? '#ff6b5e' : '#9a9aa5'}
             />
           ) : null}
+          {item.type === 'task' && recurrenceLabel(item.recurrence) ? (
+            <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color="#8b8b96" />
+          ) : null}
           <span className="spacer" />
           <span className="card-time">{relativeTime(item.updatedAt)}</span>
         </div>
+
+        {hasActions ? (
+          <div className="card-actions">
+            {onOpenLink ? (
+              <button
+                type="button"
+                className="card-action"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenLink()
+                }}
+              >
+                Open
+              </button>
+            ) : null}
+            {onProcess ? (
+              <button
+                type="button"
+                className="card-action card-action-primary"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onProcess()
+                }}
+              >
+                Process
+              </button>
+            ) : null}
+            {onConvertToTask ? (
+              <button
+                type="button"
+                className="card-action"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onConvertToTask()
+                }}
+              >
+                Convert to task
+              </button>
+            ) : null}
+            {onArchive ? (
+              <button
+                type="button"
+                className="card-action"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onArchive()
+                }}
+              >
+                Archive
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </article>
   )

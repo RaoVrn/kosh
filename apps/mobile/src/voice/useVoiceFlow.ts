@@ -53,13 +53,19 @@ export function useVoiceFlow(recorder: VoiceRecorder, onSaved: () => void): UseV
           await recorder.start()
         } catch (err) {
           console.log('[voice] recorder failed to start', err instanceof Error ? err.message : err)
-          dispatch({ type: 'prepareFailed', error: errorMessage(err, 'Could not start recording.') })
+          dispatch({
+            type: 'prepareFailed',
+            error: errorMessage(err, 'Could not start recording.'),
+          })
           return
         }
         dispatch({ type: 'recordingStarted' })
         console.log('[voice] recording started')
       } catch (err) {
-        dispatch({ type: 'permissionDenied', error: errorMessage(err, 'Microphone is unavailable.') })
+        dispatch({
+          type: 'permissionDenied',
+          error: errorMessage(err, 'Microphone is unavailable.'),
+        })
       } finally {
         busyRef.current = false
       }

@@ -25,7 +25,10 @@ class FakeMediaRecorder implements WebMediaRecorderLike {
   started = false
   failToStart = false
 
-  constructor(public stream: MediaStream, public options?: { mimeType?: string }) {
+  constructor(
+    public stream: MediaStream,
+    public options?: { mimeType?: string },
+  ) {
     if (options?.mimeType) this.mimeType = options.mimeType
     FakeMediaRecorder.instances.push(this)
   }

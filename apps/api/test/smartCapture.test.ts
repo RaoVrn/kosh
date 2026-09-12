@@ -46,6 +46,198 @@ describe('POST /api/v1/capture/interpret', () => {
     migrate(db)
   })
 
+  it('understands recurrence suggestions from the AI (daily/weekly/monthly)', async () => {
+    const cases = [
+      {
+        text: 'Study DSA every day',
+        ai: {
+          type: 'task',
+          title: 'Study DSA',
+          url: null,
+          priority: 'medium',
+          dueAt: '2026-09-14T19:00:00.000Z',
+          reminderAt: null,
+          tags: [],
+          recurrence: { frequency: 'daily', weekdays: null, dayOfMonth: null },
+          confidence: 'high',
+        },
+        expected: { frequency: 'daily' },
+      },
+      {
+        text: 'Review the project every Monday',
+        ai: {
+          type: 'task',
+          title: 'Review the project',
+          url: null,
+          priority: 'medium',
+          dueAt: '2026-09-21T10:00:00.000Z',
+          reminderAt: null,
+          tags: [],
+          recurrence: { frequency: 'weekly', weekdays: [1], dayOfMonth: null },
+          confidence: 'high',
+        },
+        expected: { frequency: 'weekly', weekdays: [1] },
+      },
+      {
+        text: 'Gym Monday Wednesday Friday',
+        ai: {
+          type: 'task',
+          title: 'Gym',
+          url: null,
+          priority: 'medium',
+          dueAt: '2026-09-14T09:00:00.000Z',
+          reminderAt: null,
+          tags: [],
+          recurrence: { frequency: 'weekly', weekdays: [1, 3, 5], dayOfMonth: null },
+          confidence: 'high',
+        },
+        expected: { frequency: 'weekly', weekdays: [1, 3, 5] },
+      },
+      {
+        text: 'Pay rent on the first of every month',
+        ai: {
+          type: 'task',
+          title: 'Pay rent',
+          url: null,
+          priority: 'high',
+          dueAt: '2026-10-01T09:00:00.000Z',
+          reminderAt: null,
+          tags: ['rent'],
+          recurrence: { frequency: 'monthly', weekdays: null, dayOfMonth: 1 },
+          confidence: 'high',
+        },
+        expected: { frequency: 'monthly', dayOfMonth: 1 },
+      },
+    ]
+
+    for (const c of cases) {
+      const { app } = withCapture(() => JSON.stringify(c.ai))
+      const res = await app.request('/api/v1/capture/interpret', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: c.text }),
+      })
+      expect(res.status).toBe(200)
+      const { data } = (await res.json()) as { data: { recurrence: unknown } }
+      expect(data.recurrence).toEqual(c.expected)
+    }
+  })
+
+  it('drops malformed AI recurrence and AI recurrence on non-tasks', async () => {
+    const cases = [
+      {
+        ai: {
+          type: 'task',
+          title: 'bad weekdays',
+          url: null,
+          priority: null,
+          dueAt: '2026-09-14T09:00:00.000Z',
+          reminderAt: null,
+          tags: null,
+          recurrence: { frequency: 'weekly', weekdays: [9, 9] },
+          confidence: 'high',
+        },
+      },
+      {
+        ai: {
+          type: 'task',
+          title: 'no due date',
+          url: null,
+          priority: null,
+          dueAt: null,
+          reminderAt: null,
+          tags: null,
+          recurrence: { frequency: 'monthly', dayOfMonth: 5 },
+          confidence: 'high',
+        },
+      },
+      {
+        ai: {
+          type: 'note',
+          title: 'note with recurrence',
+          url: null,
+          priority: null,
+          dueAt: null,
+          reminderAt: null,
+          tags: null,
+          recurrence: { frequency: 'daily' },
+          confidence: 'high',
+        },
+      },
+      {
+        ai: {
+          type: 'task',
+          title: 'no recurrence',
+          url: null,
+          priority: null,
+          dueAt: '2026-09-14T09:00:00.000Z',
+          reminderAt: null,
+          tags: null,
+          recurrence: null,
+          confidence: 'high',
+        },
+      },
+    ]
+
+    for (const c of cases) {
+      const { app } = withCapture(() => JSON.stringify(c.ai))
+      const res = await app.request('/api/v1/capture/interpret', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: 'something' }),
+      })
+      expect(res.status).toBe(200)
+      const { data } = (await res.json()) as { data: { recurrence: unknown } }
+      expect(data.recurrence).toBeNull()
+    }
+  })
+
+  it('persists a confirmed capture with recurrence through the items API', async () => {
+    const { app } = withCapture(() =>
+      JSON.stringify({
+        type: 'task',
+        title: 'Study DSA',
+        url: null,
+        priority: 'high',
+        dueAt: '2026-09-14T19:00:00.000Z',
+        reminderAt: null,
+        tags: ['dsa'],
+        recurrence: { frequency: 'daily', weekdays: null, dayOfMonth: null },
+        confidence: 'high',
+      }),
+    )
+
+    const interpret = await app.request('/api/v1/capture/interpret', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'Study DSA every day' }),
+    })
+    const { data } = (await interpret.json()) as { data: Record<string, unknown> }
+
+    const create = await app.request('/api/v1/items', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: data.type,
+        title: data.title,
+        status: 'active',
+        dueAt: data.dueAt,
+        priority: data.priority,
+        tags: data.tags,
+        recurrence: data.recurrence,
+      }),
+    })
+    expect(create.status).toBe(201)
+    const item = ((await create.json()) as { data: unknown }).data as {
+      recurrence: unknown
+      recurrenceId: string | null
+      dueAt: string
+    }
+    expect(item.recurrence).toEqual({ frequency: 'daily' })
+    expect(item.recurrenceId).toBeTruthy()
+    expect(item.dueAt).toBe('2026-09-14T19:00:00.000Z')
+  })
+
   it('interprets a task with due and reminder and does not create an item', async () => {
     const seen: string[] = []
     const { app } = withCapture((input) => {

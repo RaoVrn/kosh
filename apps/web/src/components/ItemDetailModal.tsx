@@ -1,4 +1,5 @@
 import {
+  ITEM_STATUSES,
   ITEM_TYPES,
   PRIORITIES,
   atTimeOnDay,
@@ -13,20 +14,43 @@ import {
   isToday,
   isTomorrow,
   priorityLabel,
+  statusLabel,
   toDatetimeLocalValue,
   typeLabel,
   useItems,
 } from '@kosh/shared'
+import type { ItemPatch, Recurrence } from '@kosh/shared'
+import { useCallback, useEffect } from 'react'
 import { useNav } from '../state/NavContext'
 import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
 import { TagInput } from './TagInput'
+import { RecurrenceControl } from './RecurrenceControl'
 
 export function ItemDetailModal() {
   const { selectedItemId, closeItem } = useNav()
   const { getItem, updateItem, toggleDone, removeItem } = useItems()
 
   const item = selectedItemId ? getItem(selectedItemId) : undefined
+
+  useEffect(() => {
+    if (!selectedItemId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeItem()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedItemId, closeItem])
+
+  const save = useCallback(
+    (patch: ItemPatch) => {
+      if (!item) return
+      const processPatch = item.status === 'inbox' ? { status: 'active' as const } : {}
+      void updateItem(item.id, { ...patch, ...processPatch })
+    },
+    [item, updateItem],
+  )
+
   if (!item) return null
 
   const done = item.status === 'done'
@@ -65,14 +89,14 @@ export function ItemDetailModal() {
         <textarea
           className="modal-title"
           value={item.title}
-          onChange={(e) => updateItem(item.id, { title: e.target.value })}
+          onChange={(e) => save({ title: e.target.value })}
           rows={1}
           aria-label="Item title"
         />
         <textarea
           className="modal-body"
           value={item.body ?? ''}
-          onChange={(e) => updateItem(item.id, { body: e.target.value })}
+          onChange={(e) => save({ body: e.target.value })}
           rows={3}
           placeholder="Add details…"
           aria-label="Item details"
@@ -84,7 +108,7 @@ export function ItemDetailModal() {
             <input
               className="modal-title-input"
               value={item.url ?? ''}
-              onChange={(e) => updateItem(item.id, { url: e.target.value })}
+              onChange={(e) => save({ url: e.target.value })}
               placeholder="https://…"
               aria-label="URL"
             />
@@ -96,11 +120,7 @@ export function ItemDetailModal() {
 
         <div className="modal-section">
           <div className="modal-label">Tags</div>
-          <TagInput
-            tags={item.tags ?? []}
-            onChange={(tags) => updateItem(item.id, { tags })}
-            ariaLabel="Tags"
-          />
+          <TagInput tags={item.tags ?? []} onChange={(tags) => save({ tags })} ariaLabel="Tags" />
         </div>
 
         <div className="modal-section">
@@ -111,7 +131,7 @@ export function ItemDetailModal() {
                 key={t}
                 label={typeLabel[t]}
                 active={item.type === t}
-                onPress={() => updateItem(item.id, { type: t })}
+                onPress={() => save({ type: t })}
               />
             ))}
           </div>
@@ -120,46 +140,62 @@ export function ItemDetailModal() {
         <div className="modal-section">
           <div className="modal-label">Priority</div>
           <div className="chip-row">
-            <Chip
-              label="None"
-              active={!item.priority}
-              onPress={() => updateItem(item.id, { priority: null })}
-            />
+            <Chip label="None" active={!item.priority} onPress={() => save({ priority: null })} />
             {PRIORITIES.map((p) => (
               <Chip
                 key={p}
                 label={priorityLabel[p]}
                 active={item.priority === p}
-                onPress={() => updateItem(item.id, { priority: p })}
+                onPress={() => save({ priority: p })}
               />
             ))}
           </div>
         </div>
 
         <div className="modal-section">
+          <div className="modal-label">Status</div>
+          <div className="chip-row">
+            {ITEM_STATUSES.map((s) => (
+              <Chip
+                key={s}
+                label={statusLabel[s]}
+                active={item.status === s}
+                onPress={() => updateItem(item.id, { status: s })}
+              />
+            ))}
+          </div>
+        </div>
+
+        {isTask ? (
+          <div className="modal-section">
+            <div className="modal-label">Repeat</div>
+            <RecurrenceControl
+              value={item.recurrence ?? null}
+              onChange={(recurrence: Recurrence | null) => save({ recurrence })}
+            />
+          </div>
+        ) : null}
+
+        <div className="modal-section">
           <div className="modal-label">Due</div>
           <div className="chip-row">
-            <Chip
-              label="None"
-              active={!item.dueAt}
-              onPress={() => updateItem(item.id, { dueAt: null })}
-            />
+            <Chip label="None" active={!item.dueAt} onPress={() => save({ dueAt: null })} />
             <Chip
               label="Today"
               active={item.dueAt ? isToday(item.dueAt) : false}
-              onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(0) })}
+              onPress={() => save({ dueAt: endOfDayFromNow(0) })}
             />
             <Chip
               label="Tomorrow"
               active={item.dueAt ? isTomorrow(item.dueAt) : false}
-              onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(1) })}
+              onPress={() => save({ dueAt: endOfDayFromNow(1) })}
             />
             <Chip
               label="In a week"
               active={
                 item.dueAt ? isSameDay(new Date(item.dueAt), new Date(endOfDayFromNow(7))) : false
               }
-              onPress={() => updateItem(item.id, { dueAt: endOfDayFromNow(7) })}
+              onPress={() => save({ dueAt: endOfDayFromNow(7) })}
             />
           </div>
           <input
@@ -167,7 +203,7 @@ export function ItemDetailModal() {
             className="datetime-input"
             value={item.dueAt ? toDatetimeLocalValue(item.dueAt) : ''}
             onChange={(e) =>
-              updateItem(item.id, {
+              save({
                 dueAt: e.target.value ? fromDatetimeLocalValue(e.target.value) : null,
               })
             }
@@ -188,13 +224,13 @@ export function ItemDetailModal() {
               <Chip
                 label="None"
                 active={!item.reminderAt}
-                onPress={() => updateItem(item.id, { reminderAt: null })}
+                onPress={() => save({ reminderAt: null })}
               />
               <Chip
                 label="In 1 hour"
                 active={false}
                 onPress={() =>
-                  updateItem(item.id, {
+                  save({
                     reminderAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
                   })
                 }
@@ -206,7 +242,7 @@ export function ItemDetailModal() {
                     ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(0, 9, 0)))
                     : false
                 }
-                onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(0, 9, 0) })}
+                onPress={() => save({ reminderAt: atTimeOnDay(0, 9, 0) })}
               />
               <Chip
                 label="Tomorrow 9 AM"
@@ -215,7 +251,7 @@ export function ItemDetailModal() {
                     ? isSameDay(new Date(item.reminderAt), new Date(atTimeOnDay(1, 9, 0)))
                     : false
                 }
-                onPress={() => updateItem(item.id, { reminderAt: atTimeOnDay(1, 9, 0) })}
+                onPress={() => save({ reminderAt: atTimeOnDay(1, 9, 0) })}
               />
             </div>
             <input
@@ -223,7 +259,7 @@ export function ItemDetailModal() {
               className="datetime-input"
               value={item.reminderAt ? toDatetimeLocalValue(item.reminderAt) : ''}
               onChange={(e) =>
-                updateItem(item.id, {
+                save({
                   reminderAt: e.target.value ? fromDatetimeLocalValue(e.target.value) : null,
                 })
               }

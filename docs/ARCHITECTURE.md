@@ -175,7 +175,30 @@ All timestamps are ISO-8601 UTC strings. `priority` and `tags` were added by
 migration `002`; `reminded_at` by `003` (both additive `ALTER TABLE`s). A
 second table, `notifications` (`id, item_id, type, title, body, created_at,
   read_at`), was added by migration `004`. Migration `005` adds the full-text
-search index (see Search below).
+search index (see Search below). Migration `006` adds recurrence columns
+(`recurrence_frequency` TEXT default `'none'`, `recurrence_weekdays` TEXT JSON,
+`recurrence_month_day` INTEGER, `recurrence_id` TEXT + index) — tasks only,
+additive, existing rows keep `none`.
+
+## Recurring tasks
+
+- **Model:** recurrence lives on the task row (`recurrence_frequency` =
+  `none|daily|weekly|monthly`; `recurrence_weekdays` = JSON array of 0–6;
+  `recurrence_month_day` = 1–31). `recurrence_id` groups all occurrences of
+  one series. Server-side validation (`recurrence/validation.ts`): tasks only,
+  weekly needs 1–7 unique weekdays, monthly needs a day, recurring tasks need
+  a due date; converting a task to another type clears recurrence.
+- **Generation:** completing a recurring task runs `completeTask`
+  (`recurrence/service.ts`) inside `BEGIN IMMEDIATE`: mark done + `done_at`,
+  compute the next due on the local calendar (`recurrence/calculation.ts` —
+  daily +1 day, weekly next selected weekday, monthly clamped to the target
+  month's last valid day, time preserved), shift the reminder by its offset,
+  insert exactly one active next occurrence (same title/body/url/priority/
+  tags, same `recurrence_id`), commit. Re-completing a done/archived
+  occurrence is a no-op; archive/delete never generate replacements.
+- **API:** clients keep using `PATCH /api/v1/items/:id` with
+  `{status: "done"}` to complete; the response stays `{data: item}`, and the
+  shared `ItemsProvider` refreshes afterwards so the next occurrence appears.
 
 ## API structure
 

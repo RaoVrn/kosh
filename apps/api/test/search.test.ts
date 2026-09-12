@@ -26,21 +26,23 @@ describe('FTS5 search', () => {
   it('indexes items that existed before the FTS migration (backfill)', () => {
     const pre = openDb(':memory:')
     migrate(pre, { upTo: '004_create_notifications.sql' })
-    repo.createItem(pre, {
-      title: 'Learn Docker networking',
-      type: 'task',
-      status: 'inbox',
-      priority: null,
-      tags: null,
-    })
-    repo.createItem(pre, {
-      title: 'RAG article',
-      type: 'link',
-      status: 'inbox',
-      priority: null,
-      tags: ['rag'],
-      url: 'https://example.com/rag',
-    })
+    const now = new Date().toISOString()
+    pre
+      .prepare(
+        `INSERT INTO items (id, type, status, title, body, url, due_at, reminder_at, reminded_at,
+          priority, tags, created_at, updated_at, done_at)
+         VALUES (?, 'task', 'inbox', 'Learn Docker networking', NULL, NULL, NULL, NULL, NULL,
+          NULL, NULL, ?, ?, NULL)`,
+      )
+      .run('pre-docker', now, now)
+    pre
+      .prepare(
+        `INSERT INTO items (id, type, status, title, body, url, due_at, reminder_at, reminded_at,
+          priority, tags, created_at, updated_at, done_at)
+         VALUES (?, 'link', 'inbox', 'RAG article', NULL, 'https://example.com/rag',
+          NULL, NULL, NULL, NULL, '["rag"]', ?, ?, NULL)`,
+      )
+      .run('pre-rag', now, now)
 
     migrate(pre)
     const docker = repo.searchItems(pre, { query: '"docker"' })

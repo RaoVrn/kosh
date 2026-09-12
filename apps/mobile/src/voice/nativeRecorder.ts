@@ -16,9 +16,7 @@ export function useNativeRecorder(): VoiceRecorder {
       supported: true,
       async requestPermission() {
         const permission = await requestRecordingPermissionsAsync()
-        console.log(
-          `[voice] native: permission ${permission.granted ? 'granted' : 'denied'}`,
-        )
+        console.log(`[voice] native: permission ${permission.granted ? 'granted' : 'denied'}`)
         return permission.granted
       },
       async start() {

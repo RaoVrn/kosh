@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ItemStatus, ItemType, Priority } from '@kosh/shared'
+import type { ItemStatus, ItemType, Priority, Recurrence } from '@kosh/shared'
 import {
   ITEM_STATUSES,
   PRIORITIES,
@@ -15,6 +15,7 @@ import {
 import { Icon } from './Icon'
 import { TagInput } from './TagInput'
 import { Chip, DateTimeField } from './fields'
+import { RecurrenceControl } from './RecurrenceControl'
 
 interface ItemCreateModalProps {
   type: ItemType
@@ -31,6 +32,7 @@ export function ItemCreateModal({ type, onClose }: ItemCreateModalProps) {
   const [status, setStatus] = useState<ItemStatus>('inbox')
   const [dueAt, setDueAt] = useState<string | null>(null)
   const [reminderAt, setReminderAt] = useState<string | null>(null)
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,6 +66,7 @@ export function ItemCreateModal({ type, onClose }: ItemCreateModalProps) {
         dueAt: isTask ? dueAt : undefined,
         reminderAt: isTask ? reminderAt : undefined,
         tags: tags.length > 0 ? tags : null,
+        recurrence: isTask ? recurrence : undefined,
       })
       onClose()
     } catch (err) {
@@ -200,6 +203,11 @@ export function ItemCreateModal({ type, onClose }: ItemCreateModalProps) {
             {reminderConflict ? (
               <p className="modal-meta warning">Reminder must not be after the due time.</p>
             ) : null}
+
+            <div className="modal-section">
+              <div className="modal-label">Repeat</div>
+              <RecurrenceControl value={recurrence} onChange={setRecurrence} />
+            </div>
           </>
         ) : null}
 

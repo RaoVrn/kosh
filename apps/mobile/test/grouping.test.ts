@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Item } from '@kosh/shared'
+import type { Item, KoshNotification } from '@kosh/shared'
 import {
   compareTasks,
   getLearningGroups,
   getTaskGroups,
+  getTodayCommandCenter,
   getTodayGroups,
+  isPendingTask,
   sortPendingTasks,
 } from '@kosh/shared'
 import { atTimeOnDay, daysFromNow } from '@kosh/shared'
@@ -155,6 +157,111 @@ describe('getLearningGroups', () => {
     const groups = getLearningGroups(items)
     expect(groups.highPriority.map((i) => i.id)).toEqual(['high'])
     expect(groups.active.map((i) => i.id)).toEqual(['med', 'low'])
+  })
+})
+
+describe('getTodayCommandCenter', () => {
+  const REF = new Date(2026, 8, 11, 12, 0, 0)
+
+  function notification(
+    overrides: Partial<KoshNotification> & Pick<KoshNotification, 'id'>,
+  ): KoshNotification {
+    return {
+      itemId: null,
+      type: 'reminder',
+      title: 'n',
+      body: null,
+      createdAt: '2026-09-11T09:00:00.000Z',
+      readAt: null,
+      ...overrides,
+    }
+  }
+
+  it('applies precedence overdue → due today → up next without duplicates', () => {
+    const items: Item[] = [
+      task({ id: 'overdue', dueAt: iso(2026, 9, 10, 18, 0) }),
+      task({ id: 'dueToday', dueAt: iso(2026, 9, 11, 18, 0) }),
+      task({ id: 'overdueHigh', priority: 'high', dueAt: iso(2026, 9, 9, 9, 0) }),
+      task({ id: 'upNextHigh', priority: 'high' }),
+      task({ id: 'upNextFuture', dueAt: iso(2026, 9, 15, 9, 0) }),
+    ]
+    const cc = getTodayCommandCenter(items, [], REF)
+
+    expect(cc.overdue.map((i) => i.id).sort()).toEqual(['overdue', 'overdueHigh'])
+    expect(cc.dueToday.map((i) => i.id)).toEqual(['dueToday'])
+    const upNextIds = cc.upNext.map((i) => i.id)
+    expect(upNextIds).toContain('upNextHigh')
+    expect(upNextIds).toContain('upNextFuture')
+
+    const all = [...cc.overdue, ...cc.dueToday, ...cc.upNext].map((i) => i.id)
+    expect(new Set(all).size).toBe(all.length)
+  })
+
+  it('excludes done and archived tasks from active sections', () => {
+    const items: Item[] = [
+      task({ id: 'done', status: 'done', dueAt: iso(2026, 9, 10, 18, 0) }),
+      task({ id: 'archived', status: 'archived', dueAt: iso(2026, 9, 10, 18, 0) }),
+      task({ id: 'open', dueAt: iso(2026, 9, 10, 18, 0) }),
+    ]
+    const cc = getTodayCommandCenter(items, [], REF)
+    expect(cc.overdue.map((i) => i.id)).toEqual(['open'])
+    expect(cc.upNext).toHaveLength(0)
+  })
+
+  it('includes only unread reminders, newest first', () => {
+    const notifications: KoshNotification[] = [
+      notification({ id: 'n1', createdAt: '2026-09-11T10:00:00.000Z' }),
+      notification({ id: 'n2', createdAt: '2026-09-11T11:00:00.000Z' }),
+      notification({
+        id: 'n3',
+        createdAt: '2026-09-11T09:00:00.000Z',
+        readAt: '2026-09-11T12:00:00.000Z',
+      }),
+    ]
+    const cc = getTodayCommandCenter([], notifications, REF)
+    expect(cc.reminders.map((n) => n.id)).toEqual(['n2', 'n1'])
+  })
+
+  it('includes only inbox items in recent captures, capped and newest first', () => {
+    const items: Item[] = [
+      task({ id: 'c1', status: 'inbox', createdAt: '2026-09-11T08:00:00.000Z' }),
+      task({ id: 'c2', status: 'inbox', createdAt: '2026-09-11T09:00:00.000Z' }),
+      task({ id: 'c3', status: 'inbox', createdAt: '2026-09-11T10:00:00.000Z' }),
+      task({ id: 'c4', status: 'inbox', createdAt: '2026-09-11T11:00:00.000Z' }),
+      task({ id: 'active', status: 'active', createdAt: '2026-09-11T11:30:00.000Z' }),
+    ]
+    const cc = getTodayCommandCenter(items, [], REF, { upNext: 5, reminders: 3, recentCaptures: 3 })
+    expect(cc.recentCaptures.map((i) => i.id)).toEqual(['c4', 'c3', 'c2'])
+  })
+
+  it('limits up next and keeps priority ordering', () => {
+    const items: Item[] = [1, 2, 3, 4, 5, 6, 7].map((n) =>
+      task({
+        id: `u${n}`,
+        priority: n % 2 === 0 ? 'high' : 'low',
+        dueAt: iso(2026, 9, 12 + n, 9, 0),
+      }),
+    )
+    const cc = getTodayCommandCenter(items, [], REF, { upNext: 5, reminders: 3, recentCaptures: 3 })
+    expect(cc.upNext).toHaveLength(5)
+    expect(cc.upNext[0].id).toBe('u2')
+  })
+})
+
+describe('isPendingTask', () => {
+  const base = task({ id: 't1' })
+
+  it('is pending for inbox and active tasks only', () => {
+    expect(isPendingTask({ ...base, status: 'inbox' })).toBe(true)
+    expect(isPendingTask({ ...base, status: 'active' })).toBe(true)
+    expect(isPendingTask({ ...base, status: 'done' })).toBe(false)
+    expect(isPendingTask({ ...base, status: 'archived' })).toBe(false)
+  })
+
+  it('is never pending for non-task items', () => {
+    for (const type of ['note', 'idea', 'learning', 'link'] as const) {
+      expect(isPendingTask({ ...base, type })).toBe(false)
+    }
   })
 })
 

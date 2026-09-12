@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Item, ItemType, Priority, ItemStatus } from '../index'
+import type { CaptureResult, Item, ItemType, Priority, ItemStatus } from '../index'
+import type { TranscribeFileInput } from '../api/itemsApi'
 import { errorMessage } from '../api/itemsApi'
 import { createItemsApi, DEFAULT_API_BASE_URL } from '../api/itemsApi'
 import type { ItemsApiClient } from '../api/itemsApi'
@@ -46,6 +47,8 @@ interface ItemsContextValue {
   toggleDone: (id: string) => Promise<void>
   removeItem: (id: string) => Promise<void>
   search: (params: SearchQuery) => Promise<Item[]>
+  interpret: (text: string, timezone?: string, currentTime?: string) => Promise<CaptureResult>
+  transcribe: (file: TranscribeFileInput) => Promise<string>
 }
 
 interface ItemsProviderProps {
@@ -159,6 +162,20 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
     [client],
   )
 
+  const interpret = useCallback(
+    async (text: string, timezone?: string, currentTime?: string) => {
+      return client.interpretCapture({ text, timezone, currentTime })
+    },
+    [client],
+  )
+
+  const transcribe = useCallback(
+    async (file: TranscribeFileInput) => {
+      return client.transcribeAudio(file)
+    },
+    [client],
+  )
+
   const value = useMemo(
     () => ({
       items,
@@ -171,8 +188,23 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
       toggleDone,
       removeItem,
       search,
+      interpret,
+      transcribe,
     }),
-    [items, loading, error, refresh, getItem, addItem, updateItem, toggleDone, removeItem, search],
+    [
+      items,
+      loading,
+      error,
+      refresh,
+      getItem,
+      addItem,
+      updateItem,
+      toggleDone,
+      removeItem,
+      search,
+      interpret,
+      transcribe,
+    ],
   )
 
   return <ItemsContext.Provider value={value}>{children}</ItemsContext.Provider>

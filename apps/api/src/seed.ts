@@ -1,7 +1,10 @@
 import { join } from 'node:path'
 import { createMockItems } from '@kosh/shared'
+import { loadEnv } from './env.js'
 import { migrate, openDb } from './db.js'
 import { countItems, insertItem } from './items/repo.js'
+
+loadEnv()
 
 const dbPath = process.env.KOSH_DB_PATH ?? join(process.cwd(), 'data', 'kosh.db')
 

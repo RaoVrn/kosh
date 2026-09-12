@@ -11,6 +11,7 @@ export * from './api/itemsApi'
 export * from './react/ItemsContext'
 export * from './react/NotificationsContext'
 export * from './react/useServerSearch'
+export * from './react/useSmartCapture'
 
 export type ItemType = 'task' | 'note' | 'idea' | 'learning' | 'link'
 
@@ -65,4 +66,34 @@ export interface ApiError {
 export interface HealthResponse {
   status: 'ok'
   db: 'ok'
+}
+
+export type CaptureConfidence = 'high' | 'medium' | 'low'
+
+export interface CaptureResult {
+  type: ItemType
+  title: string
+  body: string | null
+  url: string | null
+  priority: Priority | null
+  dueAt: string | null
+  reminderAt: string | null
+  tags: string[] | null
+  confidence: CaptureConfidence
+}
+
+export interface CaptureInterpretRequest {
+  text: string
+  timezone?: string
+  currentTime?: string
+}
+
+export interface CaptureInterpretResponse {
+  data: CaptureResult
+}
+
+export interface TranscribeResponse {
+  data: {
+    text: string
+  }
 }

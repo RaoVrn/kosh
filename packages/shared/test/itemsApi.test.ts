@@ -151,4 +151,60 @@ describe('createItemsApi', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/v1/notifications/n1')
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('PATCH')
   })
+
+  it('interpretCapture POSTs the text and returns the capture result', async () => {
+    const result = { type: 'task', title: 'Check API issue', confidence: 'high' }
+    fetchMock.mockResolvedValue(jsonResponse(200, { data: result }))
+
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const capture = await api.interpretCapture({
+      text: 'check the API issue tomorrow',
+      timezone: 'Asia/Kolkata',
+    })
+
+    expect(capture).toEqual(result)
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe('http://localhost:3001/api/v1/capture/interpret')
+    expect(call?.[1]?.method).toBe('POST')
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      text: 'check the API issue tomorrow',
+      timezone: 'Asia/Kolkata',
+    })
+  })
+
+  it('interpretCapture surfaces server errors', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(503, { error: { message: "Smart capture isn't configured." } }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    await expect(api.interpretCapture({ text: 'x' })).rejects.toThrow(/isn't configured/)
+  })
+
+  it('transcribeAudio POSTs a FormData body and parses the transcript', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { data: { text: 'hello world' } }))
+
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const text = await api.transcribeAudio({
+      blob: new Blob(['x'], { type: 'audio/mpeg' }),
+      name: 'rec.mp3',
+      mime: 'audio/mpeg',
+    })
+
+    expect(text).toBe('hello world')
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe('http://localhost:3001/api/v1/transcribe')
+    expect(call?.[1]?.method).toBe('POST')
+    expect(call?.[1]?.body).toBeInstanceOf(FormData)
+    expect(String(call?.[1]?.headers ?? '')).not.toContain('application/json')
+  })
+
+  it('transcribeAudio throws the server message on failure', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(413, { error: { message: 'Audio file is too large' } }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    await expect(
+      api.transcribeAudio({ blob: new Blob(['x']), name: 'a.mp3', mime: 'audio/mpeg' }),
+    ).rejects.toThrow(/too large/)
+  })
 })

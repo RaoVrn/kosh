@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 interface CaptureInputProps {
   innerRef?: React.RefObject<HTMLInputElement | null>
   onSubmit: (text: string) => boolean | Promise<boolean>
+  onSmartPress?: (text: string) => void
   onMicPress?: () => void
   placeholder?: string
 }
@@ -11,6 +12,7 @@ interface CaptureInputProps {
 export function CaptureInput({
   innerRef,
   onSubmit,
+  onSmartPress,
   onMicPress,
   placeholder = "What's on your mind?",
 }: CaptureInputProps) {
@@ -47,9 +49,19 @@ export function CaptureInput({
         className="icon-btn"
         onClick={onMicPress}
         aria-label="Voice capture"
-        title="Voice capture coming soon"
+        title="Voice capture"
       >
         <Icon name="mic" size={18} />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={() => onSmartPress?.(text.trim())}
+        disabled={!canSubmit}
+        aria-label="Smart capture"
+        title="Interpret with Kosh"
+      >
+        <Icon name="zap" size={18} color={canSubmit ? 'var(--accent)' : 'var(--text-faint)'} />
       </button>
       <button type="submit" className="btn-send" disabled={!canSubmit} aria-label="Add to inbox">
         <Icon name="arrow-up" size={18} color="currentColor" />

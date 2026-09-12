@@ -7,6 +7,7 @@ import { Icon } from './Icon'
 interface CaptureInputProps {
   innerRef?: RefObject<TextInput | null>
   onSubmit: (text: string) => boolean | Promise<boolean>
+  onSmartPress?: (text: string) => void
   onMicPress?: () => void
   placeholder?: string
 }
@@ -14,6 +15,7 @@ interface CaptureInputProps {
 export function CaptureInput({
   innerRef,
   onSubmit,
+  onSmartPress,
   onMicPress,
   placeholder = "What's on your mind?",
 }: CaptureInputProps) {
@@ -46,10 +48,19 @@ export function CaptureInput({
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel="Voice capture"
-        accessibilityHint="Voice capture is not available yet"
         style={styles.mic}
       >
         <Icon name="mic" size={18} color={colors.textFaint} />
+      </Pressable>
+      <Pressable
+        onPress={() => onSmartPress?.(text.trim())}
+        disabled={!canSubmit}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel="Smart capture"
+        style={styles.mic}
+      >
+        <Icon name="zap" size={18} color={canSubmit ? colors.accent : colors.textFaint} />
       </Pressable>
       <Pressable
         onPress={handleSubmit}

@@ -263,7 +263,7 @@ describe('notifications API', () => {
   it('lists, marks read and filters unread', async () => {
     const app = createApp(db)
     const a = notifRepo.createNotification(db, { itemId: 'i1', type: 'reminder', title: 'First' })
-    const b = notifRepo.createNotification(db, { itemId: 'i2', type: 'reminder', title: 'Second' })
+    const _b = notifRepo.createNotification(db, { itemId: 'i2', type: 'reminder', title: 'Second' })
 
     const list = await app.request('/api/v1/notifications')
     expect(list.status).toBe(200)

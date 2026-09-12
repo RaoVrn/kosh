@@ -8,6 +8,8 @@ import { PageHeader } from '../components/PageHeader'
 import { CaptureInput } from '../components/CaptureInput'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
+import { SmartCaptureSheet } from '../components/SmartCaptureSheet'
+import { VoiceCaptureSheet } from '../components/VoiceCaptureSheet'
 
 interface Feedback {
   message: string
@@ -21,6 +23,8 @@ export function InboxScreen() {
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [smartText, setSmartText] = useState<string | null>(null)
+  const [voiceOpen, setVoiceOpen] = useState(false)
 
   const inboxItems = useMemo(
     () =>
@@ -60,8 +64,10 @@ export function InboxScreen() {
     }
   }
 
-  const handleMic = () => {
-    showFeedback('Voice capture is coming soon')
+  const handleSaved = () => {
+    setSmartText(null)
+    setVoiceOpen(false)
+    showFeedback('Added')
   }
 
   return (
@@ -72,7 +78,12 @@ export function InboxScreen() {
           subtitle="Everything lands here first."
           count={inboxItems.length}
         />
-        <CaptureInput innerRef={inputRef} onSubmit={handleSubmit} onMicPress={handleMic} />
+        <CaptureInput
+          innerRef={inputRef}
+          onSubmit={handleSubmit}
+          onSmartPress={(text) => setSmartText(text)}
+          onMicPress={() => setVoiceOpen(true)}
+        />
         {feedback ? (
           <Text style={[styles.feedback, feedback.isError && styles.feedbackError]}>
             {feedback.message}
@@ -102,6 +113,17 @@ export function InboxScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       />
+
+      {smartText !== null ? (
+        <SmartCaptureSheet
+          text={smartText}
+          onClose={() => setSmartText(null)}
+          onSaved={handleSaved}
+        />
+      ) : null}
+      {voiceOpen ? (
+        <VoiceCaptureSheet onClose={() => setVoiceOpen(false)} onSaved={handleSaved} />
+      ) : null}
     </View>
   )
 }

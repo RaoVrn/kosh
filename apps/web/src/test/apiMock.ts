@@ -1,7 +1,16 @@
 import { vi } from 'vitest'
-import type { Item, KoshNotification } from '@kosh/shared'
+import type { CaptureResult, Item, KoshNotification } from '@kosh/shared'
 
-export function createApiFetchMock(seed: Item[] = [], seedNotifications: KoshNotification[] = []) {
+export interface SmartCaptureMockOptions {
+  interpretResult?: CaptureResult
+  interpretError?: { status: number; message: string }
+}
+
+export function createApiFetchMock(
+  seed: Item[] = [],
+  seedNotifications: KoshNotification[] = [],
+  options: SmartCaptureMockOptions = {},
+) {
   let store = [...seed]
   let notifStore = [...seedNotifications]
   let nextId = 0
@@ -101,6 +110,31 @@ export function createApiFetchMock(seed: Item[] = [], seedNotifications: KoshNot
       const updated: KoshNotification = { ...current, readAt: new Date().toISOString() }
       notifStore = notifStore.map((n) => (n.id === id ? updated : n))
       return respond(200, { data: updated })
+    }
+
+    if (method === 'POST' && url.pathname === '/api/v1/capture/interpret') {
+      if (options.interpretError) {
+        return respond(options.interpretError.status, {
+          error: { message: options.interpretError.message },
+        })
+      }
+      return respond(200, {
+        data: options.interpretResult ?? {
+          type: 'task',
+          title: 'Check API issue',
+          body: 'Rahul asked me to check the API issue.',
+          url: null,
+          priority: 'medium',
+          dueAt: null,
+          reminderAt: null,
+          tags: ['API'],
+          confidence: 'high',
+        },
+      })
+    }
+
+    if (method === 'POST' && url.pathname === '/api/v1/transcribe') {
+      return respond(200, { data: { text: 'Rahul asked me to check the API issue tomorrow.' } })
     }
 
     return respond(404, { error: { message: 'Not found' } })

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { Pressable, StyleSheet, Text } from 'react-native'
+import { colors, radius } from '../theme'
 import { useItems } from '@kosh/shared'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'

@@ -62,6 +62,10 @@ Core MVP (the initial build):
 11. **Basic search** — full-text search over everything.
 12. **Dark theme** — default, minimal, text-first UI.
 13. **Mobile-first UI** — the phone experience is the primary one.
+14. **Smart Capture** — AI suggests type/title/due/reminder/priority/tags for a
+    capture; the user edits and confirms before saving. Never automatic.
+15. **Voice Capture** — speak a capture; it is transcribed (server-side),
+    editable, and then runs through Smart Capture.
 
 The user is **never required** to choose a category when capturing. Everything
 starts as an untagged inbox item; type/status can be changed or inferred later.
@@ -84,10 +88,17 @@ and can later be converted (in place, same item id) into any of the five types.
 
 ## Future features
 
+- **Smart Capture** (implemented in MVP) — AI _suggests_ a structured
+  interpretation (type, title, due date, reminder, priority, tags) of a raw
+  capture; the user confirms before anything is persisted. **AI is an
+  assistant, not the source of truth**: nothing is created automatically.
+- **Voice Capture** (implemented in MVP) — record on mobile (or the web
+  browser where supported), transcribe server-side, edit the transcript, then
+  run it through Smart Capture. Audio is not stored permanently.
 - **AI-assisted organization** — auto-classify captures, suggest due dates,
   summarize, and group related items.
 - **Natural-language capture parsing** — e.g. "remind me to pay rent on the 1st"
-  becomes a task with a reminder.
+  becomes a task with a reminder (Smart Capture's date/reminder extraction).
 - **Web / desktop interface** — the same backend, new surface.
 - **Widget / share-sheet capture** — capture from other apps (browser share,
   iOS share sheet).
@@ -95,6 +106,10 @@ and can later be converted (in place, same item id) into any of the five types.
 - **Recurring reminders and smarter scheduling.**
 - **Attachments** (images, files).
 - **Tags / custom views.**
+
+Future AI directions (explicitly not in this phase): semantic understanding,
+automatic organization without confirmation, relationship extraction,
+personalized prioritization, knowledge graphs, proactive suggestions.
 
 ## Explicitly out of scope for MVP
 

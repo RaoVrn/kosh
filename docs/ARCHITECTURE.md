@@ -136,7 +136,8 @@ separate tables or endpoints per type:
   listener.
 - **Config:** environment variables only — `PORT` (default `3001`) and
   `KOSH_DB_PATH` (default `<repo>/apps/api/data/kosh.db`). No config file, no
-  secrets manager.
+  secrets manager. A root `.env` (monorepo root) is auto-loaded on startup
+  (`apps/api/src/env.ts`); already-set environment variables take precedence.
 - **Routes:** versioned under `/api/v1/*` — health plus the full items CRUD.
 
 ## Database
@@ -246,6 +247,62 @@ items
   ~300 ms, stale-response-safe) backed by the shared API client; search state
   is kept separate from the normal item collection.
 
+## Smart Capture + Voice
+
+```
+                Capture
+              /         \
+           Text          Voice
+            │              │
+            │        Transcription
+            │              │
+            └───────┬──────┘
+                    ↓
+             Smart Capture (POST /api/v1/capture/interpret)
+                    ↓
+              AI Provider (replaceable)
+                    ↓
+            CaptureResult (validated, suggestion only)
+                    ↓
+              User confirms / edits (clients)
+                    ↓
+               POST /api/v1/items  →  SQLite
+```
+
+- **Suggestion-first:** `POST /api/v1/capture/interpret` never persists
+  anything — it returns a validated `CaptureResult` suggestion; the client
+  shows an editable preview and only then creates the item through the normal
+  Items API. The original capture text is always preserved (fallback: "Save to
+  Inbox").
+- **AI provider abstraction:** the API depends on `AiProvider.interpretCapture`
+  and `TranscriptionProvider.transcribe` interfaces; the only implementation is
+  an OpenAI-compatible HTTP client (works with OpenAI, OpenRouter, Groq,
+  Ollama…). No vendor SDKs. Configuration is env-only (`AI_API_KEY`,
+  `AI_BASE_URL`, `AI_MODEL`, `TRANSCRIPTION_MODEL`, `AI_TIMEOUT_MS`); without a
+  key, smart capture/transcription return 503 "not configured" and everything
+  else keeps working.
+- **Structured output + validation:** the model is prompted (versioned
+  `capturePromptV1`) to return JSON; the server re-validates every field
+  against the existing item rules (type enum, http(s) URL, ISO dates,
+  reminder ≤ due, tag limits). Invalid output → 422; provider failure → 502;
+  the capture is never lost.
+- **Dates/timezone:** the client sends its IANA `timezone` and `currentTime`;
+  the model interprets relative dates ("tomorrow", "at 10") against them and
+  returns ISO-8601 UTC, which the server validates.
+- **Voice:** mobile records with `expo-audio` (permission requested on tap,
+  `HIGH_QUALITY` preset → `.m4a`/MPEG-4 AAC), uploads to
+  `POST /api/v1/transcribe` (multipart; MIME + ≤10 MB validated; no permanent
+  audio storage), and the editable transcript then feeds Smart Capture. Web
+  voice uses the browser `MediaRecorder` API (MIME chosen via
+  `MediaRecorder.isTypeSupported` from webm/ogg/mp4; tracks always stopped)
+  where supported and reports honestly when it isn't.
+- **Transcription provider:** Groq/OpenAI-compatible
+  `POST {AI_BASE_URL}/audio/transcriptions` (multipart `file` + `model`);
+  default model `whisper-large-v3-turbo` (valid on Groq — `whisper-1` is not).
+  Supported upload formats: m4a, webm, ogg, mp4, mp3, wav, flac.
+- **Secrets:** provider calls happen only server-side; keys never reach the
+  web/mobile bundles or the database.
+
 ## Authentication approach
 
 - **Now:** none. The API is designed to run on localhost / a private network
@@ -293,8 +350,11 @@ In-app notification (notifications table + GET/PATCH /api/v1/notifications)
   _derived from_ the persisted API data (`planTaskReminders` →
   `syncTaskReminderNotifications` via `expo-notifications`), so there is no
   mobile-only task store. When a task is completed, deleted, or its reminder
-  changes, the scheduled local notification is cancelled and re-synced. Full
-  delivery can only be verified on a real device / dev build (Expo Go
+  changes, the scheduled local notification is cancelled and re-synced.
+  **Native-only:** when the Expo app runs on web, notification sync safely
+  no-ops (platform guard in `src/notifications/platform.ts`); the web
+  experience gets its notifications from `apps/web`'s own browser handling.
+  Full delivery can only be verified on a real device / dev build (Expo Go
   limitations are documented).
 
 ## Voice transcription architecture

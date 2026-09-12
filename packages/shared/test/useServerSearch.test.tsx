@@ -36,6 +36,12 @@ function fakeApi(getItems: ItemsApiClient['getItems']): ItemsApiClient {
     markNotificationRead: async () => {
       throw new Error('unused')
     },
+    interpretCapture: async () => {
+      throw new Error('unused')
+    },
+    transcribeAudio: async () => {
+      throw new Error('unused')
+    },
   }
 }
 

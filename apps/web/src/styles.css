@@ -1003,3 +1003,135 @@ textarea {
   align-items: center;
   gap: 4px;
 }
+
+/* ---------- smart / voice capture ---------- */
+
+.smart-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+}
+
+.smart-state-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.smart-state-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.smart-state-original {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-style: italic;
+  max-width: 480px;
+}
+
+.smart-state .modal-actions,
+.smart-state > .btn-block {
+  width: 100%;
+}
+
+.voice-error {
+  color: var(--danger);
+}
+
+.voice-record-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 38px;
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.voice-record-btn:hover {
+  background: var(--accent-strong);
+}
+
+.voice-record-btn.recording {
+  animation: voice-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 124, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(139, 124, 246, 0);
+  }
+}
+
+.preview-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-kicked {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.confidence {
+  font-size: 11px;
+  align-self: flex-start;
+}
+
+.confidence-high {
+  color: var(--success);
+  background: rgba(76, 217, 123, 0.12);
+}
+
+.confidence-medium {
+  color: var(--warning);
+  background: rgba(231, 183, 90, 0.12);
+}
+
+.confidence-low {
+  color: var(--text-muted);
+  background: rgba(154, 154, 165, 0.12);
+}
+
+.modal-actions-row {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-actions-row .btn-secondary {
+  flex: 1;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: var(--radius-m);
+  padding: 10px 16px;
+}
+
+.btn-secondary:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.original-note {
+  overflow-wrap: anywhere;
+}

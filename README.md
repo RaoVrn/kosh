@@ -10,31 +10,37 @@ necessary.
 ## Status
 
 ```
-ALL FIVE CONTENT TYPES + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
+ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH + SMART & VOICE CAPTURE
 ```
 
 The backend API (Hono + SQLite) is the source of truth. **Both** the mobile
 app and the web app share the same data through a shared API client. Kosh
-stores five first-class content types — **Task, Note, Idea, Learning, Link** —
-on one `Item` model, plus tasks/reminders, an in-process reminder scheduler,
-in-app notifications, and server-side FTS5 search.
+stores five content types — **Task, Note, Idea, Learning, Link** — with
+reminders, in-app notifications, server-side FTS5 search, **Smart Capture**
+(AI _suggests_ structure; you confirm before anything persists) and **Voice
+Capture** (record → transcribe → edit → confirm).
 
 ### What works now
 
-- Five content types, fully CRUD, on web + mobile (Notes, Ideas, Learning,
-  Links have dedicated screens and New-item flows)
-- Type-specific validation (links require a valid URL; reminders task-only)
-- Manual type conversion in place (same id, content preserved) — the future
-  AI-classification workflow
-- Tags on every item: add/remove/edit, FTS5-searchable
-- Tasks: priority, due date/time, reminder, completion
-- Reminders fire exactly once; completed/archived tasks are skipped
-- Server-side search (debounced, ranked, with type filters)
-- In-app notification center with unread badge on both clients
-- Web browser notifications (opt-in); mobile local notifications
-- **Mobile:** bottom tabs on phone, sidebar on desktop
-- **Web:** sidebar on desktop, compact top nav below 768px
-- Phone + laptop share the same item model, API client, and backend data
+- Smart Capture: type/title/body/URL/priority/due/reminder/tags suggested by
+  AI, editable preview, Save / Cancel / "Save to Inbox" fallback — AI is a
+  suggestion, never automatic
+- Voice Capture on mobile (`expo-audio`) and web (`MediaRecorder` where
+  supported): record → transcribe → edit transcript → Smart Capture
+- Five content types, fully CRUD, web + mobile; type conversion in place
+- Tags on every item (add/remove/edit, FTS5-searchable)
+- Tasks with priority, due dates and exactly-once reminders
+- Server-side search (debounced, ranked, type filters)
+- In-app notification center; web browser notifications; mobile local
+  notifications
+- Raw capture still works without AI — `npm run dev` runs with no AI key
+
+### AI configuration (optional)
+
+Smart Capture and transcription are disabled until you provide a key
+(`AI_API_KEY`, OpenAI-compatible — also works with OpenRouter/Groq/Ollama via
+`AI_BASE_URL`). See `.env.example`. Provider calls happen only server-side;
+keys never reach the clients.
 
 ## Stack
 
@@ -75,7 +81,9 @@ npm run dev:mobile          # Expo dev server / Metro (press w for web)
 npm run db:seed -w @kosh/api  # optional: seed demo items (only if empty)
 ```
 
-Environment variables (all optional):
+Environment variables (all optional). The API automatically loads a root
+`.env` file (repo root) at startup — real environment variables always take
+precedence. See `.env.example`:
 
 - `PORT` — API port (default `3001`)
 - `KOSH_DB_PATH` — SQLite file path (default `apps/api/data/kosh.db`)
@@ -84,6 +92,15 @@ Environment variables (all optional):
   `http://localhost:3001`; on a physical device set it to
   `http://<your-mac-lan-ip>:3001` — the phone's `localhost` is the phone)
 - `VITE_API_URL` — API base URL for the web app (default `http://localhost:3001`)
+- `AI_API_KEY` — enables Smart Capture + transcription (absent → "not
+  configured", everything else keeps working)
+- `AI_BASE_URL` — OpenAI-compatible endpoint (default `https://api.openai.com/v1`)
+- `AI_MODEL` — interpretation model (default `gpt-4o-mini`)
+- `TRANSCRIPTION_MODEL` — transcription model (default
+  `whisper-large-v3-turbo`; valid on Groq and OpenAI — `whisper-1` is not valid
+  on Groq)
+- `AI_TIMEOUT_MS` — provider timeout (default `15000`)
+- `TRANSCRIPTION_TIMEOUT_MS` — transcription timeout (default `30000`)
 
 ## Checks
 

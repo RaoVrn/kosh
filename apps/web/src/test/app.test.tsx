@@ -530,4 +530,90 @@ describe('Kosh web app', () => {
     expect(screen.getByRole('heading', { name: 'Completed', level: 2 })).toBeTruthy()
     expect(screen.getByText('Kubernetes')).toBeTruthy()
   })
+
+  it('smart capture interprets, previews and saves an item', async () => {
+    const fetchMock = createApiFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.change(screen.getByLabelText('Capture text'), {
+      target: { value: 'Rahul asked me to check the API issue tomorrow.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Smart capture' }))
+
+    expect(await screen.findByText('Kosh understood this as')).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Smart capture' })).toBeTruthy()
+    expect(screen.getByDisplayValue('Check API issue')).toBeTruthy()
+    expect(screen.getByText('Confidence: high')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Check API issue v2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Check API issue v2')).toBeTruthy()
+    const postCall = fetchMock.mock.calls.find(
+      ([url, init]) => init?.method === 'POST' && String(url).includes('/api/v1/items'),
+    )
+    const posted = JSON.parse(String(postCall?.[1]?.body)) as { type: string; title: string }
+    expect(posted.type).toBe('task')
+    expect(posted.title).toBe('Check API issue v2')
+  })
+
+  it('smart capture cancel does not create an item', async () => {
+    const fetchMock = createApiFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.change(screen.getByLabelText('Capture text'), { target: { value: 'Something' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Smart capture' }))
+    await screen.findByText('Kosh understood this as')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => {
+      const itemPosts = fetchMock.mock.calls.filter(
+        ([url, init]) => init?.method === 'POST' && String(url).includes('/api/v1/items'),
+      )
+      expect(itemPosts.length).toBe(0)
+    })
+  })
+
+  it('smart capture failure preserves the original text with an inbox fallback', async () => {
+    const fetchMock = createApiFetchMock([], [], {
+      interpretError: {
+        status: 502,
+        message: "Kosh couldn't interpret this right now. Your capture is safe.",
+      },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.change(screen.getByLabelText('Capture text'), {
+      target: { value: 'My precious capture text' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Smart capture' }))
+
+    expect(await screen.findByText("Couldn't interpret this right now.")).toBeTruthy()
+    expect(screen.getByText('"My precious capture text"')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Inbox' }))
+    expect(await screen.findByText('My precious capture text')).toBeTruthy()
+    const postCall = fetchMock.mock.calls.find(
+      ([url, init]) => init?.method === 'POST' && String(url).includes('/api/v1/items'),
+    )
+    const posted = JSON.parse(String(postCall?.[1]?.body)) as { type: string; title: string }
+    expect(posted.type).toBe('note')
+    expect(posted.title).toBe('My precious capture text')
+  })
+
+  it('voice capture shows an honest limitation on unsupported browsers', async () => {
+    vi.stubGlobal('fetch', createApiFetchMock())
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Voice capture' }))
+
+    expect(await screen.findByText("Voice capture isn't supported in this browser.")).toBeTruthy()
+  })
 })

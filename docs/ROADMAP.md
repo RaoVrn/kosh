@@ -143,20 +143,35 @@ Goal: find anything you have ever captured, without downloading everything.
 
 ## Phase 7 — Smart Capture + Voice
 
-Goal: capture by voice, and let captures classify themselves.
+Goal: capture by voice, and let Kosh understand captures — as a suggestion the
+user confirms, never an automatic action.
 
-- [ ] Mobile: record audio (expo-av / expo-audio), upload to API.
-- [ ] API: `POST /api/v1/transcriptions` → transcribe via hosted STT (Whisper).
-- [ ] Pipeline: transcription output flows through the normal capture path.
-- [ ] Mobile: mic button on the capture surface.
-- [ ] API: optional LLM post-processor on create (classify `type`, suggest
-      `due_at`, clean title) — the same in-place conversion workflow built in
-      Phase 5.
-- [ ] API: validation of LLM output against `@kosh/shared` types; fallback to
-      inbox on failure.
-- [ ] Clients: show confidence / suggestion UI ("Looks like a task — confirm?").
-- [ ] API: send push via Expo push service for fired reminders.
-- [ ] Mobile: register push token; handle push → open item.
+- [x] Smart Capture API: `POST /api/v1/capture/interpret` (interpret only,
+      never persists), with timezone/currentTime context and validated,
+      structured `CaptureResult` output.
+- [x] AI provider abstraction (`AiProvider`) with one OpenAI-compatible
+      implementation via plain `fetch`; env-only config; graceful 503 when not
+      configured.
+- [x] Versioned system prompt (`capturePromptV1`) with task/note/idea/learning/
+      link examples and date/reminder extraction rules; server-side output
+      validation (type/URL/dates/reminder≤due/tags), safe fallbacks (note,
+      original text as title, URL extraction).
+- [x] Confirmation UI on web + mobile: editable preview (type, title, body,
+      URL, priority, due, reminder, tags), Save → Items API, Cancel, and
+      "Save to Inbox" fallback that never loses the original capture.
+- [x] Transcription API: `POST /api/v1/transcribe` (multipart, MIME + size
+      limits, no permanent audio storage) behind a `TranscriptionProvider`
+      abstraction.
+- [x] Mobile voice: `expo-audio` recording (permission on tap), transcript
+      editing, then Smart Capture. Web voice: `MediaRecorder` foundation with
+      honest unsupported-browser messaging.
+- [x] Tests with fake providers: interpretation for all five types, invalid/
+      timeout/unavailable AI output, no-item-created guarantee, transcription
+      validation, and a mocked end-to-end capture → item → search flow.
+- [ ] Real push delivery for fired reminders (deferred).
+- Future AI work: semantic understanding, automatic organization, relationship
+  extraction, personalized prioritization, knowledge graph, proactive
+  suggestions — none of it automatic-persistence in this phase.
 
 ## Phase 8 — Polish and deployment
 

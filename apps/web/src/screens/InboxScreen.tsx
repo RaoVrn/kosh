@@ -5,6 +5,8 @@ import { PageHeader } from '../components/PageHeader'
 import { CaptureInput } from '../components/CaptureInput'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
+import { SmartCaptureModal } from '../components/SmartCaptureModal'
+import { VoiceCaptureModal } from '../components/VoiceCaptureModal'
 
 interface Feedback {
   message: string
@@ -17,6 +19,8 @@ export function InboxScreen() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [smartText, setSmartText] = useState<string | null>(null)
+  const [voiceOpen, setVoiceOpen] = useState(false)
 
   const inboxItems = useMemo(
     () =>
@@ -52,14 +56,21 @@ export function InboxScreen() {
     }
   }
 
-  const handleMic = () => {
-    setFeedback({ message: 'Voice capture is coming soon', isError: false })
+  const handleSaved = () => {
+    setSmartText(null)
+    setVoiceOpen(false)
+    setFeedback({ message: 'Added', isError: false })
   }
 
   return (
     <div className="content">
       <PageHeader title="Inbox" subtitle="Everything lands here first." count={inboxItems.length} />
-      <CaptureInput onSubmit={handleSubmit} onMicPress={handleMic} innerRef={inputRef} />
+      <CaptureInput
+        onSubmit={handleSubmit}
+        onSmartPress={(text) => setSmartText(text)}
+        onMicPress={() => setVoiceOpen(true)}
+        innerRef={inputRef}
+      />
       {feedback ? (
         <p className={feedback.isError ? 'feedback error' : 'feedback'}>{feedback.message}</p>
       ) : null}
@@ -81,6 +92,17 @@ export function InboxScreen() {
           />
         ))
       )}
+
+      {smartText !== null ? (
+        <SmartCaptureModal
+          text={smartText}
+          onClose={() => setSmartText(null)}
+          onSaved={handleSaved}
+        />
+      ) : null}
+      {voiceOpen ? (
+        <VoiceCaptureModal onClose={() => setVoiceOpen(false)} onSaved={handleSaved} />
+      ) : null}
     </div>
   )
 }

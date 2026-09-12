@@ -386,6 +386,53 @@ item)`. The MVP implementation persists a row in the `notifications` table
 - **Why:** avoids rewriting the working editor; creation gets a clean,
   deliberate flow.
 
+### D33 — AI is suggestion-first, never automatic
+
+- **Status:** Accepted (smart capture)
+- **Decision:** `POST /api/v1/capture/interpret` returns a **validated
+  suggestion** and never persists. Clients show an editable preview; the item
+  is created only through the normal `POST /api/v1/items` after the user
+  confirms. The original capture text is preserved end-to-end, and "Save to
+  Inbox" is always available as a fallback when AI fails.
+- **Why:** AI is an assistant, not the source of truth — no silent, incorrect
+  tasks/reminders. This is also the path future automatic capture would
+  evolve from.
+
+### D34 — Provider abstraction with one OpenAI-compatible implementation
+
+- **Status:** Accepted (smart capture)
+- **Decision:** The API depends on `AiProvider.interpretCapture` and
+  `TranscriptionProvider.transcribe` interfaces. The single implementation
+  talks to any OpenAI-compatible HTTP endpoint via plain `fetch` (no vendor
+  SDK): OpenAI, OpenRouter, Groq, Ollama… all work through `AI_BASE_URL`.
+  Config is env-only (`AI_API_KEY`, `AI_MODEL`, `TRANSCRIPTION_MODEL`,
+  `AI_TIMEOUT_MS`); without a key the API returns 503 "not configured" and the
+  rest of Kosh runs normally.
+- **Why:** replaceable provider, zero SDK coupling, no new dependencies,
+  secrets stay server-side.
+
+### D35 — Structured AI output is re-validated server-side
+
+- **Status:** Accepted (smart capture)
+- **Decision:** The model is prompted (versioned `capturePromptV1`) to return
+  JSON with a fixed schema; the server re-validates every field against the
+  existing item rules (type enum, http(s) URLs, ISO dates, reminder ≤ due,
+  tag count/length). Invalid dates are dropped, reminder-after-due is dropped,
+  links without URLs fall back to the text URL or downgrade to `note`, and a
+  missing title falls back to the original capture.
+- **Why:** never trust model output; no fragile regex parsing of free text.
+
+### D36 — Transcription is separate from interpretation; audio is transient
+
+- **Status:** Accepted (voice capture)
+- **Decision:** `POST /api/v1/transcribe` only turns audio into text
+  (multipart, MIME + ≤10 MB limits, no permanent storage); the text then flows
+  through Smart Capture like any typed capture. Mobile records via
+  `expo-audio` (microphone permission requested only when the user taps the
+  mic) and allows transcript editing before interpretation.
+- **Why:** keeps the pipeline composable and testable; audio is processed in
+  memory and discarded.
+
 ## Product decisions
 
 ### P1 — No category selection at capture time

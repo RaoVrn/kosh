@@ -16,31 +16,29 @@ you when necessary.
 ## Current Project Status
 
 ```
-ALL FIVE CONTENT TYPES + TASKS/REMINDERS + NOTIFICATIONS + SERVER-SIDE SEARCH
+ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH + SMART & VOICE CAPTURE
 ```
 
-- **API (`apps/api`)**: `/api/v1/items` CRUD for **all five types** (task,
-  note, idea, learning, link) with type-specific validation (`link` requires a
-  valid http(s) URL; reminders task-only) + FTS5 search (`?q=…`, filters,
-  limit/offset, bm25) + `/api/v1/notifications`, on Hono + SQLite, tracked
-  migrations, CORS, explicit `db:seed`. In-process reminder scheduler fires
-  due reminders exactly once.
-- **Mobile (`apps/mobile`)**: 10 screens incl. **Links**; Notes/Ideas/
-  Learning/Links have dedicated create sheets and are fully CRUD; Learning
-  backlog grouped by priority/status; tags editable everywhere; search is
-  server-side (debounced).
-- **Web (`apps/web`)**: Vite + React on `http://localhost:3000`, same screens;
-  generic New-item modal per type, tag editing, detail editor with URL + tags,
-  links screen with external-open.
-- **Shared (`packages/shared`)**: typed API client, `ItemsProvider` (+
-  `search`), `NotificationsProvider`, `useServerSearch`, task/learning
-  grouping utils, url utils, types.
-- Type conversion = in-place `PATCH` of `type` (same id, content preserved) —
-  the future AI-classification workflow.
-- Mock data is only an explicit seed (`npm run db:seed -w @kosh/api`) and test
-  fixtures.
-- No AI, voice, auth, push, recurring reminders, or semantic search yet.
-- Next milestone: **Phase 7 — Smart Capture + Voice** (see `docs/ROADMAP.md`).
+- **API (`apps/api`)**: `/api/v1/items` CRUD for all five types +
+  FTS5 search + `/api/v1/notifications` + **`/api/v1/capture/interpret`**
+  (AI-suggested, validated `CaptureResult`; never persists) +
+  **`/api/v1/transcribe`** (multipart audio → text; MIME + size limits; no
+  permanent audio storage). Reminder scheduler fires exactly once.
+- **AI layer (`apps/api/src/ai/`)**: `AiProvider` / `TranscriptionProvider`
+  interfaces with one OpenAI-compatible `fetch` implementation; env-only
+  config; graceful 503 when no `AI_API_KEY` (Kosh keeps working, raw capture
+  unaffected).
+- **Mobile (`apps/mobile`)**: 10 screens; Smart Capture + Voice Capture on the
+  Inbox — record via `expo-audio` (permission on tap), transcript editing,
+  editable confirmation preview, Save / Cancel / Save-to-Inbox fallback.
+- **Web (`apps/web`)**: same Smart Capture flow for text; voice via the
+  browser `MediaRecorder` where supported (honest unsupported message
+  otherwise).
+- **Shared (`packages/shared`)**: typed API client (items/search/notifications/
+  capture/transcribe), `ItemsProvider`, `NotificationsProvider`,
+  `useServerSearch`, `useSmartCapture`, types (`CaptureResult`, confidence).
+- No auth, push, recurring reminders, semantic search, or autonomous AI yet.
+- Next milestone: **Phase 8 — Polish and deployment** (see `docs/ROADMAP.md`).
 
 This status section must be updated whenever a milestone completes or the
 architecture changes.
@@ -69,13 +67,20 @@ architecture changes.
   synced by triggers (migration `005`). `GET /api/v1/items?q=…` with bm25
   ranking, `type`/`status` filters, `limit`/`offset`. Client Search screens
   use the shared `useServerSearch` hook (debounced ~300 ms).
+- **Smart Capture:** `POST /api/v1/capture/interpret` → `AiProvider` (one
+  OpenAI-compatible `fetch` implementation, env-only) → validated
+  `CaptureResult` **suggestion** → client preview → user confirms →
+  `POST /api/v1/items`. Never automatic; original text always preserved.
+- **Voice:** `POST /api/v1/transcribe` (multipart → text, transient) behind
+  `TranscriptionProvider`; mobile records via `expo-audio`, web via
+  `MediaRecorder` where supported.
 - **Shared:** `@kosh/shared` holds the API contract types, design tokens,
   platform-neutral utilities, the typed API client, mock data (seed/tests
   only), and the API-backed `ItemsProvider` + `NotificationsProvider` +
-  `useServerSearch`.
-- **No auth** in the MVP, **no AI**, **no voice**, **no ORM**, **no state
-  library**, **no UI kit**, **no react-navigation** (custom shells) yet —
-  these are deliberate (see `docs/DECISIONS.md`).
+  `useServerSearch` + `useSmartCapture`.
+- **No auth** in the MVP, **no push**, **no ORM**, **no state library**, **no
+  UI kit**, **no react-navigation** (custom shells) yet — these are deliberate
+  (see `docs/DECISIONS.md`).
 
 Full detail: `docs/ARCHITECTURE.md` · `docs/PRODUCT.md` · `docs/DECISIONS.md`.
 
@@ -87,20 +92,24 @@ apps/
     migrations/   SQL migration files, applied once & tracked (schema_migrations)
     src/
       index.ts    server bootstrap (open DB → migrate → scheduler → listen)
-      app.ts      Hono app / routes / CORS / error handling
+      app.ts      Hono app / routes / CORS / error handling / service injection
       db.ts       SQLite connection + migration runner
       items/      repo.ts (row mapping + CRUD + FTS search) · validation.ts
                   search.ts (safe FTS query builder)
+      ai/         config.ts · types.ts (AiProvider/TranscriptionProvider)
+                  providers/openaiCompatible.ts
+                  capture/ (prompt.ts · validate.ts · service.ts)
+                  transcription/service.ts
       reminders/  scheduler.ts (clock-injected, exactly-once)
       notifications/ repo.ts
-      routes/     HTTP handlers (health, items, notifications)
+      routes/     HTTP handlers (health, items, notifications, capture, transcribe)
       seed.ts     explicit mock-data seed (npm run db:seed)
-    test/         vitest tests (health, items CRUD, search, reminders,
-                  notifications, content types + conversion)
+    test/         vitest tests (items, search, reminders, notifications,
+                  types, smart capture + transcription with fake providers)
   mobile/         Expo app (React Native, TypeScript)
     src/
       components/ shared UI (AppShell, ItemCard, CaptureInput, ItemCreateSheet,
-                  TagInput, …)
+                  SmartCaptureSheet, VoiceCaptureSheet, TagInput, …)
       screens/     one file per screen (Inbox, Today, Tasks, Notes, Ideas,
                   Learning, Links, Search, Notifications, Settings)
       notifications/ plan.ts (pure) · schedule.ts (expo-notifications)
@@ -109,14 +118,15 @@ apps/
     test/         vitest tests for utils + reminder plan
   web/            Vite + React app (laptop/desktop, TypeScript)
     src/
-      components/ web UI (Shell, Sidebar, ItemCard, ItemCreateModal, TagInput, …)
+      components/ web UI (Shell, Sidebar, ItemCard, ItemCreateModal,
+                  SmartCaptureModal, VoiceCaptureModal, TagInput, …)
       screens/     one file per screen (same 10 screens as mobile)
       state/       navigation context
       test/        vitest + Testing Library interaction tests (fetch-mocked)
 packages/
   shared/         Types, tokens, utils, mock data (seed/tests only),
                   typed API client, ItemsProvider, NotificationsProvider,
-                  useServerSearch
+                  useServerSearch, useSmartCapture
 docs/             PRODUCT / ARCHITECTURE / ROADMAP / DECISIONS
 ```
 
@@ -142,6 +152,22 @@ Environment (all optional):
   `http://localhost:3001`; use the host LAN IP when testing on a real device).
 - `VITE_API_URL` — API base URL the web app calls (default
   `http://localhost:3001`).
+- `AI_API_KEY` — enables Smart Capture + transcription (absent → 503
+  "not configured", everything else keeps working).
+- `AI_BASE_URL` — OpenAI-compatible endpoint (default `https://api.openai.com/v1`;
+  for Groq use `https://api.groq.com/openai/v1`).
+- `AI_MODEL` — interpretation model (default `gpt-4o-mini`).
+- `TRANSCRIPTION_MODEL` — transcription model (default `whisper-large-v3-turbo`,
+  valid on both Groq and OpenAI — `whisper-1` is NOT valid on Groq).
+- `AI_TIMEOUT_MS` — provider timeout (default `15000`).
+- `TRANSCRIPTION_TIMEOUT_MS` — transcription timeout (default `30000`).
+
+The API automatically loads a **root `.env`** (monorepo root) at startup via
+`apps/api/src/env.ts` — real environment variables always take precedence over
+`.env` values. This is why a single root `.env` works with `npm run dev` from
+the repository root. `.env` is git-ignored; never commit credentials.
+
+See `.env.example`. Never commit real API keys.
 
 ## How to run tests / checks
 

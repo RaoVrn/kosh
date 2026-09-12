@@ -46,6 +46,107 @@ describe('POST /api/v1/capture/interpret', () => {
     migrate(db)
   })
 
+  it('resolves a suggested project name to an existing active project', async () => {
+    const { app } = withCapture(() =>
+      JSON.stringify({
+        type: 'task',
+        title: 'Fix Kosh mobile navigation',
+        url: null,
+        priority: 'high',
+        dueAt: null,
+        reminderAt: null,
+        tags: ['mobile'],
+        projectName: 'Kosh',
+        recurrence: null,
+        confidence: 'high',
+      }),
+    )
+    const kosh = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Kosh' }),
+    })
+    const koshId = ((await kosh.json()) as { data: { id: string } }).data.id
+
+    const res = await app.request('/api/v1/capture/interpret', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'Fix the Kosh mobile navigation' }),
+    })
+    expect(res.status).toBe(200)
+    const { data } = (await res.json()) as {
+      data: { projectName: string | null; projectId: string | null }
+    }
+    expect(data.projectName).toBe('Kosh')
+    expect(data.projectId).toBe(koshId)
+  })
+
+  it('never creates a project for an unknown suggested name', async () => {
+    const { app } = withCapture(() =>
+      JSON.stringify({
+        type: 'task',
+        title: 'Fix nav',
+        url: null,
+        priority: null,
+        dueAt: null,
+        reminderAt: null,
+        tags: null,
+        projectName: 'Unknown Project',
+        recurrence: null,
+        confidence: 'high',
+      }),
+    )
+    const res = await app.request('/api/v1/capture/interpret', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'fix nav for the unknown project' }),
+    })
+    const { data } = (await res.json()) as { data: { projectId: string | null } }
+    expect(data.projectId).toBeNull()
+
+    const list = (await app.request('/api/v1/projects')).status
+    expect(list).toBe(200)
+    const projects = ((await (await app.request('/api/v1/projects')).json()) as { data: unknown[] })
+      .data
+    expect(projects).toHaveLength(0)
+  })
+
+  it('does not resolve to an archived project', async () => {
+    const { app } = withCapture(() =>
+      JSON.stringify({
+        type: 'task',
+        title: 'Fix nav',
+        url: null,
+        priority: null,
+        dueAt: null,
+        reminderAt: null,
+        tags: null,
+        projectName: 'Old',
+        recurrence: null,
+        confidence: 'high',
+      }),
+    )
+    const created = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Old' }),
+    })
+    const id = ((await created.json()) as { data: { id: string } }).data.id
+    await app.request(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ archivedAt: new Date().toISOString() }),
+    })
+
+    const res = await app.request('/api/v1/capture/interpret', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'fix nav' }),
+    })
+    const { data } = (await res.json()) as { data: { projectId: string | null } }
+    expect(data.projectId).toBeNull()
+  })
+
   it('understands recurrence suggestions from the AI (daily/weekly/monthly)', async () => {
     const cases = [
       {

@@ -8,6 +8,9 @@ interface NavContextValue {
   selectedItemId: string | null
   openItem: (id: string) => void
   closeItem: () => void
+  selectedProjectId: string | null
+  openProject: (id: string) => void
+  closeProject: () => void
   captureFocusRequest: number
   requestCaptureFocus: () => void
   moreOpen: boolean
@@ -19,6 +22,7 @@ const NavContext = createContext<NavContextValue | null>(null)
 export function NavProvider({ children }: { children: ReactNode }) {
   const [screen, setScreen] = useState<ScreenName>('inbox')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [captureFocusRequest, setCaptureFocusRequest] = useState(0)
   const [moreOpen, setMoreOpen] = useState(false)
 
@@ -29,6 +33,8 @@ export function NavProvider({ children }: { children: ReactNode }) {
 
   const openItem = useCallback((id: string) => setSelectedItemId(id), [])
   const closeItem = useCallback(() => setSelectedItemId(null), [])
+  const openProject = useCallback((id: string) => setSelectedProjectId(id), [])
+  const closeProject = useCallback(() => setSelectedProjectId(null), [])
   const requestCaptureFocus = useCallback(() => setCaptureFocusRequest((n) => n + 1), [])
 
   const value = useMemo(
@@ -38,6 +44,9 @@ export function NavProvider({ children }: { children: ReactNode }) {
       selectedItemId,
       openItem,
       closeItem,
+      selectedProjectId,
+      openProject,
+      closeProject,
       captureFocusRequest,
       requestCaptureFocus,
       moreOpen,
@@ -49,6 +58,9 @@ export function NavProvider({ children }: { children: ReactNode }) {
       selectedItemId,
       openItem,
       closeItem,
+      selectedProjectId,
+      openProject,
+      closeProject,
       captureFocusRequest,
       requestCaptureFocus,
       moreOpen,

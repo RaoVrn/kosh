@@ -6,6 +6,9 @@ import type {
   ItemType,
   KoshNotification,
   Priority,
+  Project,
+  ProjectInput,
+  ProjectUpdate,
   Recurrence,
 } from '../index'
 
@@ -20,6 +23,7 @@ export interface ItemsListParams {
   q?: string
   type?: ItemType
   status?: ItemStatus
+  projectId?: string
   limit?: number
   offset?: number
 }
@@ -35,6 +39,7 @@ export interface CreateItemInput {
   reminderAt?: string | null
   tags?: string[] | null
   recurrence?: Recurrence | null
+  projectId?: string | null
 }
 
 export type UpdateItemInput = Partial<CreateItemInput>
@@ -49,6 +54,11 @@ export interface ItemsApiClient {
   markNotificationRead: (id: string) => Promise<KoshNotification>
   interpretCapture: (input: CaptureInterpretRequest) => Promise<CaptureResult>
   transcribeAudio: (file: TranscribeFileInput) => Promise<string>
+  listProjects: () => Promise<Project[]>
+  getProject: (id: string) => Promise<Project>
+  createProject: (input: ProjectInput) => Promise<Project>
+  updateProject: (id: string, patch: ProjectUpdate) => Promise<Project>
+  deleteProject: (id: string) => Promise<void>
 }
 
 export const DEFAULT_API_BASE_URL = 'http://localhost:3001'
@@ -60,6 +70,7 @@ export function createItemsApi(baseUrl: string = DEFAULT_API_BASE_URL): ItemsApi
       if (params?.q) query.set('q', params.q)
       if (params?.type) query.set('type', params.type)
       if (params?.status) query.set('status', params.status)
+      if (params?.projectId) query.set('projectId', params.projectId)
       if (params?.limit !== undefined) query.set('limit', String(params.limit))
       if (params?.offset !== undefined) query.set('offset', String(params.offset))
       const qs = query.toString()
@@ -120,6 +131,23 @@ export function createItemsApi(baseUrl: string = DEFAULT_API_BASE_URL): ItemsApi
       const body = (await res.json()) as { data?: { text?: string } }
       if (!body.data?.text) throw new Error(`Unexpected response from the API (${res.status})`)
       return body.data.text
+    },
+    listProjects: () => request<Project[]>(baseUrl, '/api/v1/projects'),
+    getProject: (id) => request<Project>(baseUrl, `/api/v1/projects/${encodeURIComponent(id)}`),
+    createProject: (input) =>
+      request<Project>(baseUrl, '/api/v1/projects', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    updateProject: (id, patch) =>
+      request<Project>(baseUrl, `/api/v1/projects/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    deleteProject: async (id) => {
+      await request<undefined>(baseUrl, `/api/v1/projects/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
     },
   }
 }

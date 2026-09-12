@@ -5,6 +5,7 @@ import type { IconName, ScreenName } from '../navigation/types'
 import { useNav } from '../state/NavContext'
 
 const MORE_ITEMS: { screen: ScreenName; icon: IconName; title: string }[] = [
+  { screen: 'projects', icon: 'folder', title: 'Projects' },
   { screen: 'notes', icon: 'file-text', title: 'Notes' },
   { screen: 'ideas', icon: 'zap', title: 'Ideas' },
   { screen: 'learning', icon: 'book-open', title: 'Learning' },

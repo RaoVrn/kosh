@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Db } from '../db.js'
 import * as repo from '../items/repo.js'
+import { getProject } from '../projects/repo.js'
 import { buildFtsQuery } from '../items/search.js'
 import { completeTask } from '../recurrence/service.js'
 import {
@@ -48,17 +49,30 @@ function parseOptionalInt(
   return n
 }
 
+function assertProjectAssignable(db: Db, projectId: string | null | undefined): void {
+  if (!projectId) return
+  const project = getProject(db, projectId)
+  if (!project) throw new ValidationError('projectId must reference an existing project')
+  if (project.archivedAt) {
+    throw new ValidationError('Cannot assign an item to an archived project')
+  }
+}
+
 export function itemsRoutes(db: Db): Hono {
   const app = new Hono()
 
   app.get('/', (c) => {
     const type = c.req.query('type')
     const status = c.req.query('status')
+    const projectId = c.req.query('projectId')
     if (type !== undefined && !isItemType(type)) {
       return c.json({ error: { message: 'Invalid type filter' } }, 400)
     }
     if (status !== undefined && !isItemStatus(status)) {
       return c.json({ error: { message: 'Invalid status filter' } }, 400)
+    }
+    if (projectId !== undefined && projectId.trim() === '') {
+      return c.json({ error: { message: 'Invalid projectId filter' } }, 400)
     }
 
     const q = (c.req.query('q') ?? '').trim()
@@ -71,6 +85,7 @@ export function itemsRoutes(db: Db): Hono {
       const items = repo.searchItems(db, {
         type,
         status,
+        projectId,
         query: ftsQuery,
         limit: limit ?? SEARCH_DEFAULT_LIMIT,
         offset: offset ?? 0,
@@ -81,6 +96,7 @@ export function itemsRoutes(db: Db): Hono {
     const items = repo.listItems(db, {
       type,
       status,
+      projectId,
       limit: limit ?? LIST_DEFAULT_LIMIT,
       offset: offset ?? 0,
     })
@@ -96,7 +112,9 @@ export function itemsRoutes(db: Db): Hono {
 
   app.post('/', async (c) => {
     const body = await readJson(c)
-    const item = repo.createItem(db, parseCreateBody(body))
+    const createData = parseCreateBody(body)
+    assertProjectAssignable(db, createData.projectId ?? null)
+    const item = repo.createItem(db, createData)
     return c.json({ data: item }, 201)
   })
 
@@ -121,6 +139,7 @@ export function itemsRoutes(db: Db): Hono {
     assertReminderRules(effectiveType, effectiveDue, effectiveReminder)
     assertTypeRules(effectiveType, effectiveUrl)
     assertRecurrenceRules(effectiveType, effectiveRecurrence ?? null, effectiveDue ?? null)
+    assertProjectAssignable(db, patch.projectId)
 
     if (
       patch.status === 'done' &&

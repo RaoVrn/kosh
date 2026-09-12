@@ -77,6 +77,7 @@ export function completeTask(db: Db, item: Item): CompletionResult {
         tags: current.tags,
         recurrence,
         recurrenceId: current.recurrenceId ?? uid(),
+        projectId: current.projectId,
         createdAt: now,
         updatedAt: now,
         doneAt: null,

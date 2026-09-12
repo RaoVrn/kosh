@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Item } from '@kosh/shared'
 import { colors, priorityColors, radius, spacing } from '../theme'
-import { priorityLabel, recurrenceLabel } from '@kosh/shared'
+import { priorityLabel, recurrenceLabel, useProjectName } from '@kosh/shared'
 import { formatDueAt, formatReminderAt, isOverdue } from '@kosh/shared'
 import { Badge } from './Badge'
 import { Icon } from './Icon'
@@ -15,6 +15,7 @@ interface TaskItemProps {
 export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
   const done = item.status === 'done'
   const overdue = item.dueAt ? isOverdue(item.dueAt) : false
+  const projectName = useProjectName(item.projectId)
 
   return (
     <Pressable
@@ -57,6 +58,12 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
             <View style={styles.repeatChip}>
               <Icon name="repeat" size={11} color={colors.textMuted} />
               <Text style={styles.repeatText}>{recurrenceLabel(item.recurrence)}</Text>
+            </View>
+          ) : null}
+          {projectName ? (
+            <View style={styles.projectChip}>
+              <Icon name="folder" size={11} color={colors.textMuted} />
+              <Text style={styles.projectText}>{projectName}</Text>
             </View>
           ) : null}
         </View>
@@ -150,6 +157,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
+  },
+  projectChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  projectText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
   },
   repeatText: {
     color: colors.textMuted,

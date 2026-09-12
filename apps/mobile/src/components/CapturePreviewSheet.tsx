@@ -25,6 +25,7 @@ import {
 import { colors, radius, spacing } from '../theme'
 import { TagInput } from './TagInput'
 import { RecurrenceControl } from './RecurrenceControl'
+import { ProjectSelector } from './ProjectSelector'
 
 interface CapturePreviewSheetProps {
   result: CaptureResult
@@ -51,6 +52,7 @@ export function CapturePreviewSheet({
   const [reminderAt, setReminderAt] = useState<string | null>(result.reminderAt)
   const [tags, setTags] = useState<string[]>(result.tags ?? [])
   const [recurrence, setRecurrence] = useState<Recurrence | null>(result.recurrence ?? null)
+  const [projectId, setProjectId] = useState<string | null>(result.projectId ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,6 +77,7 @@ export function CapturePreviewSheet({
         reminderAt: isTask ? reminderAt : undefined,
         tags: tags.length > 0 ? tags : null,
         recurrence: isTask ? recurrence : null,
+        projectId,
       })
       onSave()
     } catch (err) {
@@ -168,6 +171,10 @@ export function CapturePreviewSheet({
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Tags</Text>
               <TagInput tags={tags} onChange={setTags} accessibilityLabel="Tags" />
+            </View>
+
+            <View style={styles.section}>
+              <ProjectSelector value={projectId} onChange={setProjectId} />
             </View>
 
             {isTask || isLearning ? (

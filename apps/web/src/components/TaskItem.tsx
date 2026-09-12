@@ -7,7 +7,7 @@ import {
   priorityLabel,
 } from '@kosh/shared'
 import { Badge } from './Badge'
-import { recurrenceLabel } from '@kosh/shared'
+import { recurrenceLabel, useProjectName } from '@kosh/shared'
 import { Icon } from './Icon'
 
 interface TaskItemProps {
@@ -19,6 +19,7 @@ interface TaskItemProps {
 export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
   const done = item.status === 'done'
   const overdue = item.dueAt ? isOverdue(item.dueAt) : false
+  const projectName = useProjectName(item.projectId)
 
   return (
     <article
@@ -67,6 +68,12 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
             <span className="repeat-chip">
               <Icon name="repeat" size={11} />
               {recurrenceLabel(item.recurrence)}
+            </span>
+          ) : null}
+          {projectName ? (
+            <span className="project-chip">
+              <Icon name="folder" size={11} />
+              {projectName}
             </span>
           ) : null}
         </div>

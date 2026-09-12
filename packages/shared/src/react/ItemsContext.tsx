@@ -17,6 +17,7 @@ export interface ItemPatch {
   reminderAt?: string | null
   tags?: string[]
   recurrence?: Recurrence | null
+  projectId?: string | null
 }
 
 export interface ItemInput {
@@ -30,6 +31,7 @@ export interface ItemInput {
   reminderAt?: string | null
   tags?: string[] | null
   recurrence?: Recurrence | null
+  projectId?: string | null
 }
 
 export interface SearchQuery {
@@ -105,6 +107,7 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
           reminderAt: input.reminderAt ?? null,
           tags: input.tags ?? null,
           recurrence: input.recurrence ?? null,
+          projectId: input.projectId ?? null,
         })
         setItems((prev) => [item, ...prev.filter((i) => i.id !== item.id)])
         return item

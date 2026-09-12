@@ -11,7 +11,9 @@ export function openDb(path: string): Db {
   if (path !== ':memory:') {
     mkdirSync(dirname(path), { recursive: true })
   }
-  return new DatabaseSync(path)
+  const db = new DatabaseSync(path)
+  db.exec('PRAGMA foreign_keys = ON')
+  return db
 }
 
 export function migrate(db: Db, options: { upTo?: string } = {}): void {

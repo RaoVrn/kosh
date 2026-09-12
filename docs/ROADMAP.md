@@ -248,6 +248,42 @@ Goal: responsibilities that repeat automatically, without pre-generating rows.
       archive/delete/convert rules), Smart Capture recurrence parsing,
       RecurrenceControl + app-level wiring on web, label utils on mobile.
 
+## Phase 11 — Projects + contextual organization
+
+Goal: group related items around a project/context without folder-manager
+complexity.
+
+- [x] Data model: migration `007` adds `projects` (`id, name, description,
+    created_at, updated_at, archived_at`, case-insensitive unique name via
+      `lower(name)` index) and `items.project_id` (nullable FK,
+      `ON DELETE SET NULL`, `PRAGMA foreign_keys = ON`). One item ≤ one
+      project; any item type; existing items unaffected.
+- [x] API: `GET/POST /api/v1/projects`, `GET/PATCH/DELETE /api/v1/projects/:id`;
+      items accept `projectId` on create/patch; `GET /items?projectId=…`
+      composes with type/status/q; assignment to archived/unknown projects is
+      rejected (400). Deleting a project nulls `project_id` on its items;
+      archiving touches nothing.
+- [x] Smart Capture: prompt v3 extracts `projectName` when explicitly stated;
+      the server resolves it to an existing ACTIVE project
+      (case-insensitive, never creates) and returns `projectId`; the
+      confirmation preview shows an editable project selector; voice benefits
+      automatically.
+- [x] Recurring tasks: the generated next occurrence preserves `projectId`
+      (verified by tests).
+- [x] Clients: Projects screen (web + mobile) with list/detail, per-type
+      filters, accurate counts, create/archive/restore/delete-confirm;
+      subtle `↳ Project` labels on task/card items; project selector in the
+      detail editor and smart capture preview; archived projects appear in
+      selectors only for existing associations.
+- [x] Tests: projects CRUD/uniqueness/validation, delete-detach + archive-
+      keeps-associations, assignment restrictions, item association for all
+      five types, filtering (projectId × type/status/q), conversion preserves
+      projectId (and clears recurrence on task→non-task), recurrence copies
+      projectId, inbox processing preserves projectId, persistence across
+      connections, Smart Capture name resolution (match/no-match/archived),
+      web UI (list/create/detail/filter/label/editor/smart preview/
+      archive/delete).
+
 ---
 
 ## Later (beyond MVP)

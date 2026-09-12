@@ -31,6 +31,7 @@ import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
 import { TagInput } from './TagInput'
 import { RecurrenceControl } from './RecurrenceControl'
+import { ProjectSelector } from './ProjectSelector'
 import { useCallback } from 'react'
 
 export function ItemDetailSheet() {
@@ -130,6 +131,13 @@ export function ItemDetailSheet() {
                 tags={item.tags ?? []}
                 onChange={(tags) => save({ tags })}
                 accessibilityLabel="Tags"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <ProjectSelector
+                value={item.projectId ?? null}
+                onChange={(projectId) => updateItem(item.id, { projectId })}
               />
             </View>
 

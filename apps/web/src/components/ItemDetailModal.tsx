@@ -26,6 +26,7 @@ import { TypeBadge } from './TypeBadge'
 import { Icon } from './Icon'
 import { TagInput } from './TagInput'
 import { RecurrenceControl } from './RecurrenceControl'
+import { ProjectSelector } from './ProjectSelector'
 
 export function ItemDetailModal() {
   const { selectedItemId, closeItem } = useNav()
@@ -121,6 +122,14 @@ export function ItemDetailModal() {
         <div className="modal-section">
           <div className="modal-label">Tags</div>
           <TagInput tags={item.tags ?? []} onChange={(tags) => save({ tags })} ariaLabel="Tags" />
+        </div>
+
+        <div className="modal-section">
+          <div className="modal-label">Project</div>
+          <ProjectSelector
+            value={item.projectId ?? null}
+            onChange={(projectId) => updateItem(item.id, { projectId })}
+          />
         </div>
 
         <div className="modal-section">

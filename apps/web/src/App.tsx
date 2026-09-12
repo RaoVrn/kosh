@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { ItemsProvider, NotificationsProvider, useNotifications } from '@kosh/shared'
+import {
+  ItemsProvider,
+  NotificationsProvider,
+  ProjectsProvider,
+  useNotifications,
+} from '@kosh/shared'
 import { NavProvider } from './state/NavContext'
 import { Shell } from './components/Shell'
 import { API_BASE_URL } from './config'
@@ -8,10 +13,12 @@ export default function App() {
   return (
     <ItemsProvider baseUrl={API_BASE_URL}>
       <NotificationsProvider baseUrl={API_BASE_URL}>
-        <NavProvider>
-          <Shell />
-          <BrowserNotifications />
-        </NavProvider>
+        <ProjectsProvider baseUrl={API_BASE_URL}>
+          <NavProvider>
+            <Shell />
+            <BrowserNotifications />
+          </NavProvider>
+        </ProjectsProvider>
       </NotificationsProvider>
     </ItemsProvider>
   )

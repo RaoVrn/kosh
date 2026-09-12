@@ -92,6 +92,12 @@ CAPTURE → INBOX → PROCESS → TODAY → DO → COMPLETE → REMEMBER
   so Today only ever shows the relevant occurrence. Completed occurrences
   stay in history and remain searchable. Archive or delete a recurring task
   and the series ends there.
+- **Projects** group related items around a context ("what does this belong
+  to?"). Any item type can belong to one project; project state is
+  independent from item state — archiving a project keeps its items (only
+  blocks new assignments), deleting a project detaches items without deleting
+  them. Smart Capture can suggest an existing project by name when it is
+  explicitly mentioned, and you confirm before anything is saved.
 
 ### Five content types
 

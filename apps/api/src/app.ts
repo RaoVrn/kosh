@@ -4,6 +4,7 @@ import type { Db } from './db.js'
 import { healthRoutes } from './routes/health.js'
 import { BadJsonError, itemsRoutes } from './routes/items.js'
 import { notificationsRoutes } from './routes/notifications.js'
+import { projectsRoutes } from './routes/projects.js'
 import { captureRoutes } from './routes/capture.js'
 import { transcribeRoutes } from './routes/transcribe.js'
 import { ValidationError } from './items/validation.js'
@@ -46,7 +47,8 @@ export function createApp(db: Db, services: AppServices = {}): Hono {
   app.route('/api/v1', healthRoutes(db))
   app.route('/api/v1/items', itemsRoutes(db))
   app.route('/api/v1/notifications', notificationsRoutes(db))
-  app.route('/api/v1/capture', captureRoutes(services.capture))
+  app.route('/api/v1/projects', projectsRoutes(db))
+  app.route('/api/v1/capture', captureRoutes(db, services.capture))
   app.route('/api/v1/transcribe', transcribeRoutes(services.transcribe))
 
   return app

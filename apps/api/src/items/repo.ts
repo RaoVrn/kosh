@@ -4,7 +4,7 @@ import { uid } from '@kosh/shared'
 
 const COLUMNS =
   'id, type, status, title, body, url, due_at, reminder_at, reminded_at, priority, tags, ' +
-  'recurrence_frequency, recurrence_weekdays, recurrence_month_day, recurrence_id, ' +
+  'recurrence_frequency, recurrence_weekdays, recurrence_month_day, recurrence_id, project_id, ' +
   'created_at, updated_at, done_at'
 
 export interface ItemRow {
@@ -23,6 +23,7 @@ export interface ItemRow {
   recurrence_weekdays: string | null
   recurrence_month_day: number | null
   recurrence_id: string | null
+  project_id: string | null
   created_at: string
   updated_at: string
   done_at: string | null
@@ -40,6 +41,7 @@ export interface CreateItemData {
   tags?: string[] | null
   recurrence?: Recurrence | null
   recurrenceId?: string | null
+  projectId?: string | null
 }
 
 export type UpdateItemData = Partial<CreateItemData>
@@ -47,6 +49,7 @@ export type UpdateItemData = Partial<CreateItemData>
 export interface ListFilters {
   type?: string
   status?: string
+  projectId?: string
   limit?: number
   offset?: number
 }
@@ -54,6 +57,7 @@ export interface ListFilters {
 export interface SearchItemFilters {
   type?: string
   status?: string
+  projectId?: string
   query: string
   limit?: number
   offset?: number
@@ -107,6 +111,7 @@ function toItem(row: ItemRow): Item {
     tags,
     recurrence: parseRecurrence(row),
     recurrenceId: row.recurrence_id,
+    projectId: row.project_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     doneAt: row.done_at,
@@ -152,6 +157,7 @@ function rowValues(item: Item): (string | number | null)[] {
     rec.weekdays,
     rec.monthDay,
     rec.id,
+    item.projectId ?? null,
     item.createdAt,
     item.updatedAt,
     item.doneAt ?? null,
@@ -160,7 +166,7 @@ function rowValues(item: Item): (string | number | null)[] {
 
 export function insertItem(db: Db, item: Item): Item {
   db.prepare(
-    `INSERT INTO items (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO items (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(...rowValues(item))
   return item
 }
@@ -183,6 +189,7 @@ export function createItem(db: Db, data: CreateItemData): Item {
     recurrence,
     recurrenceId:
       recurrence && recurrence.frequency !== 'none' ? uid() : (data.recurrenceId ?? null),
+    projectId: data.projectId ?? null,
     createdAt: now,
     updatedAt: now,
     doneAt: null,
@@ -200,6 +207,10 @@ export function listItems(db: Db, filters: ListFilters = {}): Item[] {
   if (filters.status) {
     where.push('status = ?')
     params.push(filters.status)
+  }
+  if (filters.projectId) {
+    where.push('project_id = ?')
+    params.push(filters.projectId)
   }
   let sql =
     `SELECT ${COLUMNS} FROM items` +
@@ -234,6 +245,10 @@ export function searchItems(db: Db, filters: SearchItemFilters): Item[] {
   if (filters.status) {
     where.push('items.status = ?')
     params.push(filters.status)
+  }
+  if (filters.projectId) {
+    where.push('items.project_id = ?')
+    params.push(filters.projectId)
   }
   if (where.length > 0) sql += ` WHERE ${where.join(' AND ')}`
   sql += ' ORDER BY f.rank'
@@ -282,6 +297,7 @@ export function updateItem(db: Db, id: string, patch: UpdateItemData): Item | nu
     next.recurrence = null
     next.recurrenceId = null
   }
+  if (patch.projectId !== undefined) next.projectId = patch.projectId
 
   if (patch.status !== undefined) {
     next.doneAt = patch.status === 'done' ? new Date().toISOString() : null
@@ -293,7 +309,7 @@ export function updateItem(db: Db, id: string, patch: UpdateItemData): Item | nu
     `UPDATE items SET type = ?, status = ?, title = ?, body = ?, url = ?, due_at = ?,
       reminder_at = ?, reminded_at = ?, priority = ?, tags = ?,
       recurrence_frequency = ?, recurrence_weekdays = ?, recurrence_month_day = ?, recurrence_id = ?,
-      updated_at = ?, done_at = ? WHERE id = ?`,
+      project_id = ?, updated_at = ?, done_at = ? WHERE id = ?`,
   ).run(
     next.type,
     next.status,
@@ -309,6 +325,7 @@ export function updateItem(db: Db, id: string, patch: UpdateItemData): Item | nu
     rec.weekdays,
     rec.monthDay,
     rec.id,
+    next.projectId ?? null,
     next.updatedAt,
     next.doneAt ?? null,
     id,

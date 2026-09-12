@@ -125,6 +125,12 @@ export function validateCaptureOutput(raw: string, originalText: string): Captur
     }
   }
 
+  let projectName: string | null = null
+  if (typeof output.projectName === 'string') {
+    const trimmed = output.projectName.trim()
+    if (trimmed.length > 0 && trimmed.length <= 120) projectName = trimmed
+  }
+
   return {
     type: effectiveType,
     title: title || 'Untitled capture',
@@ -135,6 +141,7 @@ export function validateCaptureOutput(raw: string, originalText: string): Captur
     reminderAt,
     tags,
     recurrence,
+    projectName,
     confidence: titleFellBack ? 'low' : confidence,
   }
 }

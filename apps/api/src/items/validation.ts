@@ -109,6 +109,15 @@ function optionalTags(value: unknown): string[] | null | undefined {
   return tags
 }
 
+function optionalProjectId(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (typeof value !== 'string' || value.trim() === '') fail('projectId must be a non-empty string')
+  const id = value.trim()
+  if (id.length > MAX_ID_LENGTH) fail('projectId is too long')
+  return id
+}
+
 export function parseCreateBody(body: unknown): CreateItemData {
   if (!isRecord(body)) fail('Request body must be a JSON object')
 
@@ -138,6 +147,7 @@ export function parseCreateBody(body: unknown): CreateItemData {
   const reminderAt = optionalIso(body.reminderAt, 'reminderAt')
   const tags = optionalTags(body.tags)
   const recurrence = parseRecurrence(body.recurrence)
+  const projectId = optionalProjectId(body.projectId)
 
   assertReminderRules(body.type, dueAt, reminderAt)
   assertTypeRules(body.type, url)
@@ -154,6 +164,7 @@ export function parseCreateBody(body: unknown): CreateItemData {
     reminderAt: reminderAt ?? null,
     tags: tags ?? null,
     recurrence: recurrence ?? null,
+    projectId: projectId ?? null,
   }
 }
 
@@ -190,6 +201,7 @@ export function parsePatchBody(body: unknown): UpdateItemData {
   const reminderAt = optionalIso(body.reminderAt, 'reminderAt')
   const tags = optionalTags(body.tags)
   const recurrence = parseRecurrence(body.recurrence)
+  const projectId = optionalProjectId(body.projectId)
 
   if (bodyText !== undefined) patch.body = bodyText
   if (url !== undefined) patch.url = url
@@ -197,6 +209,7 @@ export function parsePatchBody(body: unknown): UpdateItemData {
   if (reminderAt !== undefined) patch.reminderAt = reminderAt
   if (tags !== undefined) patch.tags = tags
   if (recurrence !== undefined) patch.recurrence = recurrence
+  if (projectId !== undefined) patch.projectId = projectId
 
   if (Object.keys(patch).length === 0) fail('No fields to update')
 

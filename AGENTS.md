@@ -17,35 +17,40 @@ you when necessary.
 
 ```
 ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH + SMART & VOICE CAPTURE
-+ INBOX PROCESSING QUEUE + TODAY COMMAND CENTER + RECURRING TASKS
++ INBOX PROCESSING QUEUE + TODAY COMMAND CENTER + RECURRING TASKS + PROJECTS
 ```
 
 - **API (`apps/api`)**: `/api/v1/items` CRUD for all five types + FTS5 search +
-  `/api/v1/notifications` + `/api/v1/capture/interpret` (AI-suggested,
-  validated `CaptureResult`; never persists) + `/api/v1/transcribe`
-  (multipart audio → text). Reminder scheduler fires exactly once. Root `.env`
-  auto-loaded on startup (`src/env.ts`).
-- **Recurring tasks**: recurrence (`none|daily|weekly|monthly`) + `recurrenceId`
-  on items (tasks only, validated server-side, migration `006`). Completing a
-  recurring task runs an atomic SQLite transaction
-  (`recurrence/service.ts`): mark done → calculate next occurrence on the
-  local calendar (`recurrence/calculation.ts`, month-end clamped) → create
-  exactly ONE active next occurrence with the same metadata, reminder offset,
-  and series id. Idempotent (done/archived can't re-generate); deleting or
-  archiving never replaces. Clients refresh after completing a recurring task.
+  `/api/v1/notifications` + `/api/v1/projects` (CRUD, case-insensitive unique
+  names, archive, delete detaches items via `project_id = NULL`) +
+  `/api/v1/capture/interpret` (AI-suggested, validated `CaptureResult`; never
+  persists) + `/api/v1/transcribe` (multipart audio → text). Reminder
+  scheduler fires exactly once. Root `.env` auto-loaded on startup
+  (`src/env.ts`).
+- **Projects**: `items.project_id` (nullable FK, `ON DELETE SET NULL`,
+  `PRAGMA foreign_keys = ON`), one item ≤ one project, any item type.
+  Archived projects keep item associations but reject new assignments.
+  Projects are context only — independent of types/statuses/tags/priority.
+- **Smart Capture**: resolves an AI-suggested `projectName` to an existing
+  active project (exact case-insensitive match) — never creates one; the
+  confirmation preview shows an editable project selector; voice flows
+  benefit automatically.
+- **Recurring tasks**: `recurrence (none|daily|weekly|monthly)` +
+  `recurrenceId`; completion runs an atomic transaction
+  (`recurrence/service.ts`): mark done → local-calendar next due
+  (`recurrence/calculation.ts`, month-end clamped) → exactly ONE active next
+  occurrence, preserving metadata, reminder offset, series id, AND
+  `projectId`. Idempotent; archive/delete never replace.
 - **Inbox is a processing queue**: quick per-card actions (Process → active,
-  Archive, Convert to task, Open link); editing an inbox item in the detail
-  editor moves it to `active`; the inbox badge counts `status = inbox` live.
-- **Today is the command center**: Overdue → Due today → Up next (deterministic
-  precedence, no duplicates) + unread Reminders + Recently captured; greeting
-  and quick actions (New capture/task/note/idea/learning). Shared logic in
-  `getTodayCommandCenter` (`packages/shared`).
-- **Web**: keyboard shortcuts `N`/`T`/`/` (guarded while typing), Escape closes
-  the detail modal, status chips (incl. archive) in the detail editor.
-- **Mobile**: same processing actions (thumb-friendly), Today sections,
-  status chips in the detail sheet.
-- Mock data is only an explicit seed (`npm run db:seed -w @kosh/api`) and test
-  fixtures.
+  Archive, Convert to task, Open link); editing moves inbox → active; badge
+  counts `status = inbox` live.
+- **Today is the command center**: Overdue → Due today → Up next + unread
+  Reminders + Recently captured; greeting + quick actions; shared
+  `getTodayCommandCenter`.
+- **Web**: shortcuts `N`/`T`/`/` (guarded), Escape closes modals, Projects
+  screen with per-type filters, project selector in the detail editor.
+- **Mobile**: same processing actions + Today sections + Projects list/detail,
+  thumb-friendly selectors.
 - No auth, push, recurring reminders, or semantic search yet.
 - Next milestone: **Phase 8 — Polish and deployment** (see `docs/ROADMAP.md`).
 
@@ -223,6 +228,11 @@ without actually running it.**
     only; server-validated; `recurrenceId` links occurrences of one series.
     Calculation is local-calendar (`recurrence/calculation.ts`); completion is
     transactional and idempotent (`recurrence/service.ts`).
+- **Projects:** `projects` table (migration `007`) + `items.project_id`
+  (nullable FK, `ON DELETE SET NULL`; `PRAGMA foreign_keys = ON`). Names are
+  case-insensitively unique (`lower(name)` index). Project assignment is
+  rejected for archived projects; archiving/deleting a project never touches
+  items. `recurrence/service.ts` copies `projectId` to next occurrences.
 - **DB:** use `node:sqlite`. New schema changes = a new numbered SQL file in
   `apps/api/migrations/`, applied once and tracked in `schema_migrations`.
   Prefer additive, non-destructive changes.

@@ -42,6 +42,19 @@ function fakeApi(getItems: ItemsApiClient['getItems']): ItemsApiClient {
     transcribeAudio: async () => {
       throw new Error('unused')
     },
+    listProjects: async () => [],
+    getProject: async () => {
+      throw new Error('unused')
+    },
+    createProject: async () => {
+      throw new Error('unused')
+    },
+    updateProject: async () => {
+      throw new Error('unused')
+    },
+    deleteProject: async () => {
+      throw new Error('unused')
+    },
   }
 }
 

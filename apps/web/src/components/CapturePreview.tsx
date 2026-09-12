@@ -16,6 +16,7 @@ import { Icon } from './Icon'
 import { TagInput } from './TagInput'
 import { Chip, DateTimeField } from './fields'
 import { RecurrenceControl } from './RecurrenceControl'
+import { ProjectSelector } from './ProjectSelector'
 
 interface CapturePreviewProps {
   result: CaptureResult
@@ -42,6 +43,7 @@ export function CapturePreview({
   const [reminderAt, setReminderAt] = useState<string | null>(result.reminderAt)
   const [tags, setTags] = useState<string[]>(result.tags ?? [])
   const [recurrence, setRecurrence] = useState<Recurrence | null>(result.recurrence ?? null)
+  const [projectId, setProjectId] = useState<string | null>(result.projectId ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,6 +68,7 @@ export function CapturePreview({
         reminderAt: isTask ? reminderAt : undefined,
         tags: tags.length > 0 ? tags : null,
         recurrence: isTask ? recurrence : null,
+        projectId,
       })
       onSave()
     } catch (err) {
@@ -136,6 +139,11 @@ export function CapturePreview({
       <div className="modal-section">
         <div className="modal-label">Tags</div>
         <TagInput tags={tags} onChange={setTags} ariaLabel="Tags" />
+      </div>
+
+      <div className="modal-section">
+        <div className="modal-label">Project</div>
+        <ProjectSelector value={projectId} onChange={setProjectId} />
       </div>
 
       {isTask || isLearning ? (

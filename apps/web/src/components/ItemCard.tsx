@@ -9,6 +9,7 @@ import {
   recurrenceLabel,
   relativeTime,
   typeLabel,
+  useProjectName,
 } from '@kosh/shared'
 import { Badge } from './Badge'
 import { TypeBadge } from './TypeBadge'
@@ -42,6 +43,7 @@ export function ItemCard({
   const domain = isLink && item.url ? domainFromUrl(item.url) : null
   const showTags = item.type !== 'task' && (item.tags?.length ?? 0) > 0
   const hasActions = Boolean(onProcess || onArchive || onConvertToTask || onOpenLink)
+  const projectName = useProjectName(item.projectId)
 
   return (
     <article
@@ -108,6 +110,7 @@ export function ItemCard({
           {item.type === 'task' && recurrenceLabel(item.recurrence) ? (
             <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color="#8b8b96" />
           ) : null}
+          {projectName ? <span className="project-chip">↳ {projectName}</span> : null}
           <span className="spacer" />
           <span className="card-time">{relativeTime(item.updatedAt)}</span>
         </div>

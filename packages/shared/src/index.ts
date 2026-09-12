@@ -9,6 +9,7 @@ export * from './screens'
 export { createMockItems } from './mockData'
 export * from './api/itemsApi'
 export * from './react/ItemsContext'
+export * from './react/ProjectsContext'
 export * from './react/NotificationsContext'
 export * from './react/useServerSearch'
 export * from './react/useSmartCapture'
@@ -60,10 +61,27 @@ export interface Item {
   tags?: string[] | null
   recurrence?: Recurrence | null
   recurrenceId?: string | null
+  projectId?: string | null
   createdAt: string
   updatedAt: string
   doneAt?: string | null
 }
+
+export interface Project {
+  id: string
+  name: string
+  description?: string | null
+  createdAt: string
+  updatedAt: string
+  archivedAt?: string | null
+}
+
+export interface ProjectInput {
+  name: string
+  description?: string | null
+}
+
+export type ProjectUpdate = Partial<ProjectInput> & { archivedAt?: string | null }
 
 export interface KoshNotification {
   id: string
@@ -103,6 +121,8 @@ export interface CaptureResult {
   reminderAt: string | null
   tags: string[] | null
   recurrence?: Recurrence | null
+  projectId?: string | null
+  projectName?: string | null
   confidence: CaptureConfidence
 }
 

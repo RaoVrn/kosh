@@ -12,6 +12,7 @@ import { NotesScreen } from '../screens/NotesScreen'
 import { IdeasScreen } from '../screens/IdeasScreen'
 import { LearningScreen } from '../screens/LearningScreen'
 import { LinksScreen } from '../screens/LinksScreen'
+import { ProjectsScreen } from '../screens/ProjectsScreen'
 import { SearchScreen } from '../screens/SearchScreen'
 import { NotificationsScreen } from '../screens/NotificationsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
@@ -104,6 +105,8 @@ function ScreenRenderer() {
       return <LearningScreen />
     case 'links':
       return <LinksScreen />
+    case 'projects':
+      return <ProjectsScreen />
     case 'search':
       return <SearchScreen />
     case 'notifications':

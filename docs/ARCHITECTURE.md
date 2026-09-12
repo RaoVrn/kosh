@@ -200,6 +200,28 @@ additive, existing rows keep `none`.
   `{status: "done"}` to complete; the response stays `{data: item}`, and the
   shared `ItemsProvider` refreshes afterwards so the next occurrence appears.
 
+## Projects
+
+- **Model:** `projects` (migration `007`): `id, name, description, created_at,
+updated_at, archived_at`; names are case-insensitively unique
+  (`lower(name)` unique index). `items.project_id` is a nullable FK with
+  `ON DELETE SET NULL` (and `PRAGMA foreign_keys = ON`); one item ≤ one
+  project, any item type, `NULL` = no project.
+- **Semantics:** projects are context only — orthogonal to item type/status/
+  tags/priority/recurrence. Archiving a project never touches its items (it
+  only rejects new assignments); deleting a project nulls `project_id` on its
+  items and never deletes them; converting an item's type preserves
+  `project_id`; completing a recurring task copies `project_id` to the next
+  occurrence.
+- **API:** `GET/POST /api/v1/projects`, `GET/PATCH/DELETE /api/v1/projects/:id`
+  (PATCH handles `name`/`description`/`archivedAt`); items accept `projectId`
+  on create/patch and filter via `GET /items?projectId=…` (composes with
+  `type`/`status`/`q`).
+- **Smart Capture:** the AI suggests `projectName`; the interpret route
+  resolves it to an existing ACTIVE project (exact case-insensitive match)
+  and returns `projectId` (null when unknown/archived/ambiguous). Never
+  creates projects.
+
 ## API structure
 
 ```

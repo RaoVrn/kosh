@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { CaptureResult, Item, KoshNotification } from '@kosh/shared'
+import type { CaptureResult, Item, KoshNotification, Project } from '@kosh/shared'
 
 export interface SmartCaptureMockOptions {
   interpretResult?: CaptureResult
@@ -10,9 +10,11 @@ export function createApiFetchMock(
   seed: Item[] = [],
   seedNotifications: KoshNotification[] = [],
   options: SmartCaptureMockOptions = {},
+  seedProjects: Project[] = [],
 ) {
   let store = [...seed]
   let notifStore = [...seedNotifications]
+  let projectStore = [...seedProjects]
   let nextId = 0
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -29,14 +31,17 @@ export function createApiFetchMock(
 
     const itemsPath = '/api/v1/items'
     const notificationsPath = '/api/v1/notifications'
+    const projectsPath = '/api/v1/projects'
 
     if (method === 'GET' && (url.pathname === itemsPath || url.pathname === `${itemsPath}/`)) {
       let result = store
       const type = url.searchParams.get('type')
       const status = url.searchParams.get('status')
+      const projectId = url.searchParams.get('projectId')
       const q = url.searchParams.get('q')
       if (type) result = result.filter((i) => i.type === type)
       if (status) result = result.filter((i) => i.status === status)
+      if (projectId) result = result.filter((i) => i.projectId === projectId)
       if (q) {
         const needle = q.toLowerCase()
         result = result.filter((i) =>
@@ -135,6 +140,54 @@ export function createApiFetchMock(
 
     if (method === 'POST' && url.pathname === '/api/v1/transcribe') {
       return respond(200, { data: { text: 'Rahul asked me to check the API issue tomorrow.' } })
+    }
+
+    if (
+      method === 'GET' &&
+      (url.pathname === projectsPath || url.pathname === `${projectsPath}/`)
+    ) {
+      return respond(200, { data: projectStore })
+    }
+
+    if (method === 'GET' && url.pathname.startsWith(`${projectsPath}/`)) {
+      const id = decodeURIComponent(url.pathname.slice(projectsPath.length + 1))
+      const project = projectStore.find((p) => p.id === id)
+      return project
+        ? respond(200, { data: project })
+        : respond(404, { error: { message: 'Project not found' } })
+    }
+
+    if (method === 'POST' && url.pathname === projectsPath) {
+      const now = new Date().toISOString()
+      const project: Project = {
+        id: `proj-${++nextId}`,
+        name: 'Untitled',
+        description: null,
+        createdAt: now,
+        updatedAt: now,
+        archivedAt: null,
+        ...body,
+      }
+      projectStore = [...projectStore, project]
+      return respond(201, { data: project })
+    }
+
+    if (method === 'PATCH' && url.pathname.startsWith(`${projectsPath}/`)) {
+      const id = decodeURIComponent(url.pathname.slice(projectsPath.length + 1))
+      const current = projectStore.find((p) => p.id === id)
+      if (!current) return respond(404, { error: { message: 'Project not found' } })
+      const updated: Project = { ...current, ...body, updatedAt: new Date().toISOString() }
+      projectStore = projectStore.map((p) => (p.id === id ? updated : p))
+      return respond(200, { data: updated })
+    }
+
+    if (method === 'DELETE' && url.pathname.startsWith(`${projectsPath}/`)) {
+      const id = decodeURIComponent(url.pathname.slice(projectsPath.length + 1))
+      if (!projectStore.some((p) => p.id === id))
+        return respond(404, { error: { message: 'Project not found' } })
+      projectStore = projectStore.filter((p) => p.id !== id)
+      store = store.map((i) => (i.projectId === id ? { ...i, projectId: null } : i))
+      return respond(204)
     }
 
     return respond(404, { error: { message: 'Not found' } })

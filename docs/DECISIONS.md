@@ -539,3 +539,24 @@ item)`. The MVP implementation persists a row in the `notifications` table
   after the user confirms the preview (which shows the Repeat control).
 - **Why:** AI output is untrusted input; the suggestion-first contract stays
   intact and voice capture benefits automatically via the shared preview.
+
+### P12 — Projects are context, resolved by name, never invented
+
+- **Status:** Accepted (Phase 11)
+- **Decision:** Projects are a lightweight `projects` table; items reference
+  at most one via a nullable `project_id` FK (`ON DELETE SET NULL`). Project
+  state is fully independent from item state: archiving a project keeps every
+  association (and only blocks new assignments), deleting a project detaches
+  items without touching them. Names are case-insensitively unique.
+- **Why:** Context grouping without a second task system; FK + explicit
+  detach keeps deletion safe and documented.
+
+### P13 — AI may suggest a project NAME, never an ID
+
+- **Status:** Accepted (Phase 11)
+- **Decision:** Smart Capture returns `projectName`; the server resolves it
+  case-insensitively to exactly one existing ACTIVE project, else `projectId`
+  is null. No project is ever auto-created; the preview lets the user change
+  or remove the suggestion before persisting.
+- **Why:** Deterministic matching prevents the AI from attaching data to the
+  wrong project, and creation stays an explicit user action.

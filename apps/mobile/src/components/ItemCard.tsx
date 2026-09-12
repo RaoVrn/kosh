@@ -8,6 +8,7 @@ import {
   priorityLabel,
   recurrenceLabel,
   typeLabel,
+  useProjectName,
 } from '@kosh/shared'
 import { formatDue, isOverdue, relativeTime } from '@kosh/shared'
 import { Badge } from './Badge'
@@ -41,6 +42,7 @@ export function ItemCard({
   const isLink = item.type === 'link'
   const domain = isLink && item.url ? domainFromUrl(item.url) : null
   const showTags = item.type !== 'task' && (item.tags?.length ?? 0) > 0
+  const projectName = useProjectName(item.projectId)
 
   return (
     <Pressable
@@ -113,6 +115,7 @@ export function ItemCard({
           {item.type === 'task' && recurrenceLabel(item.recurrence) ? (
             <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color={colors.textFaint} />
           ) : null}
+          {projectName ? <Text style={styles.projectChip}>↳ {projectName}</Text> : null}
           <View style={styles.spacer} />
           <Text style={styles.time}>{relativeTime(item.updatedAt)}</Text>
         </View>
@@ -246,6 +249,11 @@ const styles = StyleSheet.create({
   time: {
     color: colors.textFaint,
     fontSize: 12,
+  },
+  projectChip: {
+    color: colors.textFaint,
+    fontSize: 12,
+    fontWeight: '500',
   },
   actions: {
     flexDirection: 'row',

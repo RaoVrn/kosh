@@ -1,6 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { CaptureResult, Item, ItemType, Priority, ItemStatus, Recurrence } from '../index'
+import type {
+  CaptureResult,
+  Item,
+  ItemType,
+  Priority,
+  ItemStatus,
+  Recurrence,
+  SearchResponse,
+} from '../index'
 import type { TranscribeFileInput } from '../api/itemsApi'
 import { errorMessage } from '../api/itemsApi'
 import { createItemsApi, DEFAULT_API_BASE_URL } from '../api/itemsApi'
@@ -38,6 +46,8 @@ export interface SearchQuery {
   q: string
   type?: ItemType
   status?: ItemStatus
+  limit?: number
+  offset?: number
 }
 
 interface ItemsContextValue {
@@ -50,9 +60,10 @@ interface ItemsContextValue {
   updateItem: (id: string, patch: ItemPatch) => Promise<void>
   toggleDone: (id: string) => Promise<void>
   removeItem: (id: string) => Promise<void>
-  search: (params: SearchQuery) => Promise<Item[]>
+  search: (params: SearchQuery) => Promise<SearchResponse>
   interpret: (text: string, timezone?: string, currentTime?: string) => Promise<CaptureResult>
   transcribe: (file: TranscribeFileInput) => Promise<string>
+  client: ItemsApiClient
 }
 
 interface ItemsProviderProps {
@@ -179,7 +190,7 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
 
   const search = useCallback(
     async (params: SearchQuery) => {
-      return client.getItems({ q: params.q, type: params.type, status: params.status })
+      return client.searchItems({ q: params.q, limit: params.limit, offset: params.offset })
     },
     [client],
   )
@@ -212,6 +223,7 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
       search,
       interpret,
       transcribe,
+      client,
     }),
     [
       items,
@@ -226,6 +238,7 @@ export function ItemsProvider({ children, baseUrl, api }: ItemsProviderProps) {
       search,
       interpret,
       transcribe,
+      client,
     ],
   )
 

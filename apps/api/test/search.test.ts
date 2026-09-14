@@ -47,8 +47,8 @@ describe('FTS5 search', () => {
     migrate(pre)
     const docker = repo.searchItems(pre, { query: '"docker"' })
     const rag = repo.searchItems(pre, { query: '"rag"' })
-    expect(docker.map((i) => i.title)).toContain('Learn Docker networking')
-    expect(rag.map((i) => i.title)).toContain('RAG article')
+    expect(docker.items.map((i) => i.title)).toContain('Learn Docker networking')
+    expect(rag.items.map((i) => i.title)).toContain('RAG article')
   })
 
   it('searches title, body, url and tags after creation', async () => {

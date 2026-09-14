@@ -121,7 +121,7 @@ describe('Kosh web app', () => {
     await screen.findByRole('heading', { name: 'Search', level: 1 })
     fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'zzznotfound' } })
 
-    expect(await screen.findByText('No results')).toBeTruthy()
+    expect(await screen.findByText(/No results for /)).toBeTruthy()
   })
 
   it('shows an error state when search fails', async () => {
@@ -158,7 +158,9 @@ describe('Kosh web app', () => {
     expect(await screen.findByText('Learn Docker networking')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
-    expect(await screen.findByText('Search Kosh')).toBeTruthy()
+    await waitFor(() => {
+      expect((screen.getByLabelText('Search') as HTMLInputElement).value).toBe('')
+    })
     expect(screen.queryByText('Learn Docker networking')).toBeNull()
   })
 
@@ -194,11 +196,11 @@ describe('Kosh web app', () => {
     fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'docker' } })
     await screen.findByText('Docker deploy guide')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filter by Learning' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Learning' })[1]!)
     await waitFor(() => {
       const qCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('q='))
       const last = qCalls[qCalls.length - 1]
-      expect(String(last?.[0])).toContain('type=learning')
+      expect(decodeURIComponent(String(last?.[0]))).toContain('type:learning')
     })
     expect(await screen.findByText('Docker networking')).toBeTruthy()
     expect(screen.queryByText('Docker deploy guide')).toBeNull()
@@ -665,7 +667,7 @@ describe('Kosh web app', () => {
     expect(await screen.findByText("Voice capture isn't supported in this browser.")).toBeTruthy()
   })
 
-  it('processes inbox items: Process removes it from the Inbox and updates the count', async () => {
+  it('processes inbox items: Activate removes it from the Inbox and updates the count', async () => {
     const fetchMock = createApiFetchMock([
       {
         id: 'in1',
@@ -681,8 +683,8 @@ describe('Kosh web app', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    const card = await screen.findByText('Unprocessed capture')
-    fireEvent.click(screen.getByRole('button', { name: 'Process' }))
+    await screen.findByText('Unprocessed capture')
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }))
 
     await waitFor(() => {
       expect(screen.queryByText('Unprocessed capture')).toBeNull()

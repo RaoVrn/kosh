@@ -98,6 +98,28 @@ CAPTURE → INBOX → PROCESS → TODAY → DO → COMPLETE → REMEMBER
   blocks new assignments), deleting a project detaches items without deleting
   them. Smart Capture can suggest an existing project by name when it is
   explicitly mentioned, and you confirm before anything is saved.
+- **Attachments** let you pin files (images, PDFs, text/markdown/CSV) to any
+  item — e.g. a screenshot with a task. Files are stored locally with the
+  API (metadata in SQLite, bytes on disk) and travel with the item across
+  editing, projects, and search results. In Smart Capture you can pick
+  attachments first; they are uploaded only after you confirm the capture, so
+  a failed upload never loses your original note. Completed recurring
+  occurrences keep their attachments; the next occurrence starts fresh.
+- **Search** is a global retrieval tool: text plus filters
+  (`type:task python`, `project:"Kosh" architecture`, `tag:ai type:learning`,
+  `has:attachment`, `status:done before:2026-09-01`) with ranked results,
+  highlighted snippets, and load-more pagination. Project names are
+  searchable (kept in sync automatically). Search is local, deterministic,
+  and metadata-based — no OCR, no document-content indexing, no semantic
+  search yet.
+- **Inbox processing** turns a messy capture into a reviewable list of
+  suggested actions: press **Process** on an inbox item and Kosh suggests up
+  to 5 structured items (tasks/notes/ideas/learning, with due dates,
+  priorities, tags, projects, reminders, recurrence). You select, edit,
+  remove, and confirm what gets created — nothing is persisted just because
+  the AI suggested it, and the original capture is never lost. Accepting
+  everything archives the source capture; partial acceptance keeps it in the
+  inbox for more processing. Attachments stay on the capture.
 
 ### Five content types
 

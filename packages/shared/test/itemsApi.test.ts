@@ -207,4 +207,197 @@ describe('createItemsApi', () => {
       api.transcribeAudio({ blob: new Blob(['x']), name: 'a.mp3', mime: 'audio/mpeg' }),
     ).rejects.toThrow(/too large/)
   })
+
+  it('listAttachments GETs the item attachment list', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { data: [{ id: 'att-1', itemId: 'i1', originalName: 'a.png' }] }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const result = await api.listAttachments('i1')
+    expect(result).toEqual([{ id: 'att-1', itemId: 'i1', originalName: 'a.png' }])
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/v1/items/i1/attachments')
+  })
+
+  it('uploadAttachment POSTs multipart with a "file" field', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(201, { data: { id: 'att-1', itemId: 'i1', originalName: 'photo.png' } }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const file = new File(['png'], 'photo.png', { type: 'image/png' })
+    const result = await api.uploadAttachment('i1', {
+      blob: file,
+      name: file.name,
+      mime: file.type,
+    })
+    expect(result.id).toBe('att-1')
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe('http://localhost:3001/api/v1/items/i1/attachments')
+    expect(call?.[1]?.method).toBe('POST')
+    const form = call?.[1]?.body as FormData
+    expect(form).toBeInstanceOf(FormData)
+    const filePart = form.get('file')
+    // The actual browser File must reach FormData, not a serialized string.
+    expect(filePart).toBeInstanceOf(File)
+    if (filePart instanceof File) {
+      expect(filePart.name).toBe('photo.png')
+      expect(filePart.type).toBe('image/png')
+    }
+    // The browser must set the multipart boundary: the client MUST NOT force
+    // application/json (or any manual multipart Content-Type) on FormData.
+    const headers = call?.[1]?.headers as Record<string, string> | undefined
+    const headerText = headers ? JSON.stringify(headers).toLowerCase() : ''
+    expect(headerText).not.toContain('application/json')
+    expect(headerText).not.toContain('multipart/form-data')
+  })
+
+  it('a plain {uri,name,type} object must never be sent as the file on a browser FormData', () => {
+    // On React Native, FormData understands a {uri,name,type} descriptor.
+    // On the browser (Expo Web), appending a plain object to FormData
+    // serializes it to the string "[object Object]", which the API rejects
+    // with "A file is required". Web callers must pass a real File/Blob.
+    const form = new FormData()
+    form.append('file', {
+      uri: 'blob:http://localhost/x',
+      name: 'x.png',
+      type: 'image/png',
+    } as unknown as Blob)
+    const value = form.get('file')
+    expect(value).not.toBeInstanceOf(Blob)
+    expect(String(value)).toBe('[object Object]')
+  })
+
+  it('uploadAttachment (uri path) still sends FormData without a JSON Content-Type', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { data: { id: 'att-2' } }))
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    await api.uploadAttachment('i1', {
+      uri: 'file:///tmp/x.png',
+      name: 'x.png',
+      mime: 'image/png',
+    })
+    const call = fetchMock.mock.calls[0]
+    const form = call?.[1]?.body as FormData
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('file')).toBeTruthy()
+    const headers = call?.[1]?.headers as Record<string, string> | undefined
+    const headerText = headers ? JSON.stringify(headers).toLowerCase() : ''
+    expect(headerText).not.toContain('application/json')
+  })
+
+  it('deleteAttachment DELETEs the attachment id', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(204))
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    await api.deleteAttachment('att-1')
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe('http://localhost:3001/api/v1/attachments/att-1')
+    expect(call?.[1]?.method).toBe('DELETE')
+  })
+
+  it('getAttachmentUrl points at the attachment endpoint', () => {
+    const api = createItemsApi('http://example.test')
+    expect(api.getAttachmentUrl('att-1')).toBe('http://example.test/api/v1/attachments/att-1')
+  })
+
+  it('searchItems requests the q/limit/offset and returns items + meta', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        data: [{ id: 'i1', title: 'match' }],
+        meta: { limit: 25, offset: 0, total: 40, hasMore: true },
+      }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const result = await api.searchItems({ q: 'type:task python', limit: 25, offset: 25 })
+    expect(result.items).toEqual([{ id: 'i1', title: 'match' }])
+    expect(result.meta.hasMore).toBe(true)
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]))
+    expect(url.searchParams.get('q')).toBe('type:task python')
+    expect(url.searchParams.get('limit')).toBe('25')
+    expect(url.searchParams.get('offset')).toBe('25')
+  })
+
+  it('searchItems surfaces server errors', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, { error: { message: 'Invalid type filter: bogus' } }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    await expect(api.searchItems({ q: 'type:bogus' })).rejects.toThrow(/Invalid type filter/)
+  })
+
+  it('processInboxItem POSTs to the item process endpoint', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        data: {
+          summary: 'Two actions.',
+          suggestions: [{ title: 'Call Rahul', type: 'task', confidence: 'high' }],
+        },
+      }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const result = await api.processInboxItem('i1')
+    expect(result.suggestions).toHaveLength(1)
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe('http://localhost:3001/api/v1/items/i1/process')
+    expect(call?.[1]?.method).toBe('POST')
+  })
+
+  it('acceptProcessedSuggestions POSTs the batch and returns created items', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        data: {
+          created: [{ id: 'c1', title: 'Call Rahul' }],
+          source: { id: 'i1', status: 'archived' },
+          skippedDuplicates: [],
+        },
+      }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    const result = await api.acceptProcessedSuggestions('i1', {
+      suggestions: [
+        {
+          title: 'Call Rahul',
+          type: 'task',
+          body: null,
+          priority: null,
+          projectName: null,
+          projectId: null,
+          dueAt: null,
+          reminderAt: null,
+          tags: null,
+          recurrence: null,
+        },
+      ],
+      markSourceProcessed: true,
+    })
+    expect(result.created).toHaveLength(1)
+    expect(result.source.status).toBe('archived')
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe('http://localhost:3001/api/v1/items/i1/process/accept')
+    expect(call?.[1]?.method).toBe('POST')
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      suggestions: [
+        {
+          title: 'Call Rahul',
+          type: 'task',
+          body: null,
+          priority: null,
+          projectName: null,
+          projectId: null,
+          dueAt: null,
+          reminderAt: null,
+          tags: null,
+          recurrence: null,
+        },
+      ],
+      markSourceProcessed: true,
+    })
+  })
+
+  it('acceptProcessedSuggestions surfaces server errors', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, { error: { message: 'No suggestions to accept' } }),
+    )
+    const api = createItemsApi(DEFAULT_API_BASE_URL)
+    await expect(api.acceptProcessedSuggestions('i1', { suggestions: [] })).rejects.toThrow(
+      /No suggestions to accept/,
+    )
+  })
 })

@@ -5,7 +5,12 @@ export * from './utils/search'
 export * from './utils/url'
 export * from './utils/grouping'
 export * from './utils/id'
+export * from './utils/recentSearches'
+export * from './utils/recurrence'
 export * from './screens'
+
+import type { Recurrence } from './utils/recurrence'
+
 export { createMockItems } from './mockData'
 export * from './api/itemsApi'
 export * from './react/ItemsContext'
@@ -26,25 +31,14 @@ export const ITEM_STATUSES: readonly ItemStatus[] = ['inbox', 'active', 'done', 
 
 export const PRIORITIES: readonly Priority[] = ['low', 'medium', 'high']
 
-export type RecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'monthly'
-
-export const RECURRENCE_FREQUENCIES: readonly RecurrenceFrequency[] = [
-  'none',
-  'daily',
-  'weekly',
-  'monthly',
-]
-
-export const WEEKDAYS: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
-
-export const WEEKDAY_SHORT: readonly string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-export const WEEKDAY_LETTERS: readonly string[] = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-
-export interface Recurrence {
-  frequency: RecurrenceFrequency
-  weekdays?: number[]
-  dayOfMonth?: number
+export interface Attachment {
+  id: string
+  itemId: string
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Item {
@@ -62,6 +56,9 @@ export interface Item {
   recurrence?: Recurrence | null
   recurrenceId?: string | null
   projectId?: string | null
+  attachments?: Attachment[]
+  attachmentCount?: number
+  snippet?: string | null
   createdAt: string
   updatedAt: string
   doneAt?: string | null
@@ -82,6 +79,51 @@ export interface ProjectInput {
 }
 
 export type ProjectUpdate = Partial<ProjectInput> & { archivedAt?: string | null }
+
+export interface SearchMeta {
+  limit: number
+  offset: number
+  total: number
+  hasMore: boolean
+}
+
+export interface SearchResponse {
+  items: Item[]
+  meta: SearchMeta
+}
+
+export interface InboxProcessingSuggestion {
+  title: string
+  body: string | null
+  type: ItemType
+  priority: Priority | null
+  projectName: string | null
+  projectId: string | null
+  dueAt: string | null
+  reminderAt: string | null
+  tags: string[] | null
+  recurrence: Recurrence | null
+  sourceText: string
+  confidence: CaptureConfidence
+  category: string | null
+}
+
+export interface InboxProcessingResult {
+  summary: string | null
+  suggestions: InboxProcessingSuggestion[]
+}
+
+export interface InboxProcessingAcceptInput {
+  suggestions: Array<Omit<InboxProcessingSuggestion, 'sourceText' | 'confidence' | 'category'>>
+  markSourceProcessed?: boolean
+  skipDuplicateTitles?: string[]
+}
+
+export interface InboxProcessingAcceptResponse {
+  created: Item[]
+  source: Item
+  skippedDuplicates: string[]
+}
 
 export interface KoshNotification {
   id: string

@@ -7,6 +7,7 @@ import { migrate, openDb } from './db.js'
 import { processDueReminders, systemClock } from './reminders/scheduler.js'
 import { getAiConfig, isAiEnabled } from './ai/config.js'
 import { createCaptureService } from './ai/capture/service.js'
+import { createProcessingService } from './ai/process/service.js'
 import { createTranscriptionService } from './ai/transcription/service.js'
 import {
   createOpenAiCompatibleProvider,
@@ -26,6 +27,7 @@ const aiConfig = getAiConfig()
 const services: AppServices = {}
 if (isAiEnabled(aiConfig)) {
   services.capture = createCaptureService(createOpenAiCompatibleProvider(aiConfig))
+  services.process = createProcessingService(createOpenAiCompatibleProvider(aiConfig))
   services.transcribe = createTranscriptionService(
     createOpenAiCompatibleTranscriptionProvider(aiConfig),
   )

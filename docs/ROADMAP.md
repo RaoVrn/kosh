@@ -254,7 +254,7 @@ Goal: group related items around a project/context without folder-manager
 complexity.
 
 - [x] Data model: migration `007` adds `projects` (`id, name, description,
-    created_at, updated_at, archived_at`, case-insensitive unique name via
+created_at, updated_at, archived_at`, case-insensitive unique name via
       `lower(name)` index) and `items.project_id` (nullable FK,
       `ON DELETE SET NULL`, `PRAGMA foreign_keys = ON`). One item ≤ one
       project; any item type; existing items unaffected.
@@ -283,6 +283,93 @@ complexity.
       connections, Smart Capture name resolution (match/no-match/archived),
       web UI (list/create/detail/filter/label/editor/smart preview/
       archive/delete).
+
+## Phase 12 — Attachments
+
+Goal: first-class local attachments on items — SQLite metadata + local-file
+storage, no cloud.
+
+- [x] Data model: migration `008` `attachments` table (FK `ON DELETE
+CASCADE`, `item_id` index); bytes stored under `KOSH_ATTACHMENT_DIR`
+      (default `apps/api/data/attachments`, git-ignored) as
+      `<attachment-id>.<ext>`.
+- [x] API: upload (multipart `file`, MIME allow-list, max
+      `KOSH_MAX_ATTACHMENT_SIZE_BYTES` 25 MB), list metadata, serve
+      (inline for images/pdf/text, download otherwise), delete (row + file),
+      item delete cleans physical files; item lists carry `attachmentCount`,
+      detail carries `attachments`.
+- [x] Safety: sanitized stored names (never the original), path-traversal-
+      proof path builder, no client trust (MIME/name/size validated
+      server-side), missing physical file → 404, no arbitrary reads.
+- [x] Smart Capture: pending attachments are picked locally, uploaded only
+      AFTER the user confirms and the item exists; failed uploads keep the
+      item and allow retry; original capture never lost. Voice benefits via
+      the shared preview.
+- [x] Web: attachments section in the detail modal (thumbnails for images,
+      open/view/delete, uploading state, errors), paperclip count on cards,
+      pending files in the capture preview.
+- [x] Mobile: same via `expo-document-picker` (new dep) + `Linking` open,
+      native-safe errors, pending files in the capture preview.
+- [x] Recurrence: next occurrences do NOT copy attachments (documented).
+- [x] Tests: API (upload/list/serve/delete/limits/unsupported/path-safety/
+      item-cleanup/recurrence-no-copy/persistence/counts), web UI (section,
+      empty, upload success/failure, delete, count, pending flow, failed
+      upload keeps item), shared client (multipart shape, URLs).
+
+## Phase 13 — Global search 2.0 + knowledge discovery
+
+Goal: deterministic, local, FTS5-powered retrieval with filters and
+discovery, no vector/embedding/external search.
+
+- [x] FTS index (migration `009`): `items_fts` gains a `project_name` column
+      (standalone FTS5 table + item triggers + project-rename trigger +
+      backfill); project rename/assignment/removal stays searchable.
+- [x] Query syntax: `type:` / `status:` / `project:"Name"` / `tag:` (AND) /
+      `before:` / `after:` (UTC day boundaries on created_at) /
+      `has:attachment`; quoted phrases; deterministic parser with 400 on
+      invalid values and on contradictory explicit params.
+- [x] Ranking + snippets: bm25 with title/tag boost; FTS5 `snippet()` with
+      `<mark>` highlighting rendered by clients; pagination
+      `meta {limit, offset, total, hasMore}`; search fully inside SQLite
+      (no N+1, no JS filtering).
+- [x] Web: redesigned Search screen (debounced input, type/status/attachment
+      chips, operator suggestions for project:/tag:/type:/status:, recent
+      searches (device-local, max 8, clearable), Load more, useful empty
+      states, snippets with highlights, result opens the detail modal).
+- [x] Mobile: equivalent Search screen (chips, recent searches, load more,
+      result opens detail sheet).
+- [x] Tests: parser (all operators, quoting, invalid input), API (project
+      name searchable + rename/assign/detach updates, archived projects,
+      type/status/tag/date/attachment filters, quoted projects, ranking,
+      snippets, pagination, contradiction 400s, inbox/archived search,
+      recurrence occurrences, persistence), web UI (debounce, filters,
+      load more, recent searches, suggestions, snippet highlight, result
+      open), shared (client searchItems, recent searches).
+
+## Phase 14 — Smart Inbox processing + action extraction
+
+Goal: turn messy captures into user-confirmed structured items, with the AI
+as a quiet assistant — never an actor.
+
+- [x] Processing endpoint: `POST /api/v1/items/:id/process` — user-triggered,
+      ephemeral suggestions (max 5), source NEVER modified, project names
+      resolved to active projects only, 502 on AI failure with source intact.
+- [x] Accept endpoint: `POST /api/v1/items/:id/process/accept` — suggestions
+      re-validated via the standard item validation, batch created in one
+      transaction, source archived only when `markSourceProcessed` AND ≥1 item
+      created; partial acceptance keeps the source in inbox; deterministic
+      duplicate skip via `skipDuplicateTitles`.
+- [x] Dedicated processing prompt (`processingPromptV1`): multi-action
+      extraction, no over-processing (informational input → note/learning),
+      no chain-of-thought, no invented projects/facts.
+- [x] Web: Process button on inbox cards (old status action renamed
+      "Activate"), review modal (original capture + attachment notice,
+      suggestion cards with select/edit/remove, duplicate warnings, Accept
+      selected/all, cancel, mark-as-processed toggle, success/error states).
+- [x] Mobile: equivalent bottom-sheet flow.
+- [x] Tests: API (fixtures A–E, source-untouched guarantees, atomic rollback,
+      partial/full acceptance, duplicates, project resolution, field
+      validation, persistence), web (full review flow), shared client.
 
 ---
 

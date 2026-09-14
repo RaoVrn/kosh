@@ -11,6 +11,7 @@ import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 import { SmartCaptureSheet } from '../components/SmartCaptureSheet'
 import { VoiceCaptureSheet } from '../components/VoiceCaptureSheet'
+import { InboxProcessSheet } from '../components/InboxProcessSheet'
 
 interface Feedback {
   message: string
@@ -18,7 +19,7 @@ interface Feedback {
 }
 
 export function InboxScreen() {
-  const { items, addItem, toggleDone, updateItem } = useItems()
+  const { items, addItem, toggleDone, updateItem, refresh } = useItems()
   const { openItem, captureFocusRequest } = useNav()
   const inputRef = useRef<TextInput>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -26,6 +27,7 @@ export function InboxScreen() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [smartText, setSmartText] = useState<string | null>(null)
   const [voiceOpen, setVoiceOpen] = useState(false)
+  const [processingItem, setProcessingItem] = useState<Item | null>(null)
 
   const inboxItems = useMemo(
     () =>
@@ -71,7 +73,7 @@ export function InboxScreen() {
     showFeedback('Added')
   }
 
-  const processItem = (item: Item) => {
+  const activateItem = (item: Item) => {
     void updateItem(item.id, { status: 'active' })
   }
 
@@ -117,7 +119,8 @@ export function InboxScreen() {
             highlighted={item.id === highlightId}
             onPress={() => openItem(item.id)}
             onToggleDone={item.type === 'task' ? () => toggleDone(item.id) : undefined}
-            onProcess={() => processItem(item)}
+            onActivate={() => activateItem(item)}
+            onProcess={() => setProcessingItem(item)}
             onArchive={() => archiveItem(item)}
             onConvertToTask={item.type !== 'task' ? () => convertToTask(item) : undefined}
             onOpenLink={item.type === 'link' && item.url ? () => openLink(item) : undefined}
@@ -144,6 +147,17 @@ export function InboxScreen() {
       ) : null}
       {voiceOpen ? (
         <VoiceCaptureSheet onClose={() => setVoiceOpen(false)} onSaved={handleSaved} />
+      ) : null}
+
+      {processingItem ? (
+        <InboxProcessSheet
+          item={processingItem}
+          onClose={() => setProcessingItem(null)}
+          onDone={() => {
+            setProcessingItem(null)
+            void refresh()
+          }}
+        />
       ) : null}
     </View>
   )

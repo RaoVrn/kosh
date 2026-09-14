@@ -22,6 +22,10 @@ function item(id: string, title: string): Item {
 function fakeApi(getItems: ItemsApiClient['getItems']): ItemsApiClient {
   return {
     getItems,
+    searchItems: async (params) => {
+      const items = await getItems({ q: params.q })
+      return { items, meta: { limit: 25, offset: 0, total: items.length, hasMore: false } }
+    },
     getItem: async () => {
       throw new Error('unused')
     },
@@ -55,6 +59,16 @@ function fakeApi(getItems: ItemsApiClient['getItems']): ItemsApiClient {
     deleteProject: async () => {
       throw new Error('unused')
     },
+    listAttachments: async () => [],
+    uploadAttachment: async () => {
+      throw new Error('unused')
+    },
+    deleteAttachment: async () => {
+      throw new Error('unused')
+    },
+    getAttachmentUrl: () => 'http://localhost:3001/api/v1/attachments/x',
+    processInboxItem: async () => ({ summary: null, suggestions: [] }),
+    acceptProcessedSuggestions: async () => ({ created: [], source: {} as never, skippedDuplicates: [] }),
   }
 }
 

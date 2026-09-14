@@ -17,7 +17,8 @@ web-build/
 .idea/
 .vscode/
 
-# Local data (SQLite)
+# Local data (SQLite + uploaded attachments)
+apps/api/data/
 apps/api/data/
 
 # Environment

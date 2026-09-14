@@ -1,5 +1,6 @@
-import type { ItemStatus, ItemType, Priority, Recurrence, RecurrenceFrequency } from '../index'
-import { WEEKDAY_SHORT } from '../index'
+import type { ItemStatus, ItemType, Priority } from '../index'
+import { WEEKDAY_SHORT } from './recurrence'
+import type { Recurrence, RecurrenceFrequency } from './recurrence'
 
 export const typeLabel: Record<ItemType, string> = {
   task: 'Task',

@@ -18,70 +18,75 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
   const projectName = useProjectName(item.projectId)
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={item.title}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-    >
-      <Pressable
-        onPress={onToggleDone}
-        hitSlop={10}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: done }}
-        accessibilityLabel={done ? 'Mark as not done' : 'Mark as done'}
-        style={[styles.check, done && styles.checkDone]}
-      >
-        {done ? <Icon name="check" size={13} color={colors.background} /> : null}
-      </Pressable>
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <Pressable
+          onPress={onToggleDone}
+          hitSlop={10}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: done }}
+          accessibilityLabel={done ? 'Mark as not done' : 'Mark as done'}
+          style={[styles.check, done && styles.checkDone]}
+        >
+          {done ? <Icon name="check" size={13} color={colors.background} /> : null}
+        </Pressable>
 
-      <View style={styles.body}>
-        <Text style={[styles.title, done && styles.titleDone]} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <View style={styles.meta}>
-          {item.priority ? (
-            <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
-          ) : null}
-          {item.dueAt ? (
-            <Text style={[styles.dueChip, overdue && styles.dueOverdue]}>
-              {formatDueAt(item.dueAt)}
-            </Text>
-          ) : null}
-          {item.reminderAt && !done ? (
-            <View style={styles.reminderChip}>
-              <Icon name="bell" size={11} color={colors.accent} />
-              <Text style={styles.reminderText}>{formatReminderAt(item.reminderAt)}</Text>
-            </View>
-          ) : null}
-          {recurrenceLabel(item.recurrence) ? (
-            <View style={styles.repeatChip}>
-              <Icon name="repeat" size={11} color={colors.textMuted} />
-              <Text style={styles.repeatText}>{recurrenceLabel(item.recurrence)}</Text>
-            </View>
-          ) : null}
-          {projectName ? (
-            <View style={styles.projectChip}>
-              <Icon name="folder" size={11} color={colors.textMuted} />
-              <Text style={styles.projectText}>{projectName}</Text>
-            </View>
-          ) : null}
-        </View>
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={item.title}
+          style={({ pressed }) => [styles.body, pressed && styles.pressed]}
+        >
+          <Text style={[styles.title, done && styles.titleDone]} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.meta}>
+            {item.priority ? (
+              <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
+            ) : null}
+            {item.dueAt ? (
+              <Text style={[styles.dueChip, overdue && styles.dueOverdue]}>
+                {formatDueAt(item.dueAt)}
+              </Text>
+            ) : null}
+            {item.reminderAt && !done ? (
+              <View style={styles.reminderChip}>
+                <Icon name="bell" size={11} color={colors.accent} />
+                <Text style={styles.reminderText}>{formatReminderAt(item.reminderAt)}</Text>
+              </View>
+            ) : null}
+            {recurrenceLabel(item.recurrence) ? (
+              <View style={styles.repeatChip}>
+                <Icon name="repeat" size={11} color={colors.textMuted} />
+                <Text style={styles.repeatText}>{recurrenceLabel(item.recurrence)}</Text>
+              </View>
+            ) : null}
+            {projectName ? (
+              <View style={styles.projectChip}>
+                <Icon name="folder" size={11} color={colors.textMuted} />
+                <Text style={styles.projectText}>{projectName}</Text>
+              </View>
+            ) : null}
+          </View>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  card: {
+    flexDirection: 'column',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   pressed: {

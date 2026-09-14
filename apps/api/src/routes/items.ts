@@ -1,8 +1,12 @@
 import { Hono } from 'hono'
 import type { Db } from '../db.js'
 import * as repo from '../items/repo.js'
+import * as attachmentRepo from '../attachments/repo.js'
+import * as attachmentStorage from '../attachments/storage.js'
+import type { AttachmentConfig } from '../attachments/config.js'
 import { getProject } from '../projects/repo.js'
-import { buildFtsQuery } from '../items/search.js'
+import { buildFtsTextQuery } from '../items/search.js'
+import { hasStructuredFilters, parseSearchQuery } from '../search/queryParser.js'
 import { completeTask } from '../recurrence/service.js'
 import {
   ValidationError,
@@ -58,7 +62,7 @@ function assertProjectAssignable(db: Db, projectId: string | null | undefined): 
   }
 }
 
-export function itemsRoutes(db: Db): Hono {
+export function itemsRoutes(db: Db, attachmentConfig?: AttachmentConfig): Hono {
   const app = new Hono()
 
   app.get('/', (c) => {
@@ -80,17 +84,60 @@ export function itemsRoutes(db: Db): Hono {
     const offset = parseOptionalInt(c.req.query('offset'), 0, 100_000, 'offset')
 
     if (q) {
-      const ftsQuery = buildFtsQuery(q)
-      if (!ftsQuery) return c.json({ data: [] })
-      const items = repo.searchItems(db, {
-        type,
-        status,
+      const parsed = parseSearchQuery(q)
+
+      if (type !== undefined && parsed.type !== undefined && type !== parsed.type) {
+        throw new ValidationError(
+          `Conflicting type filters: ?type=${type} and q=type:${parsed.type}`,
+        )
+      }
+      if (status !== undefined && parsed.status !== undefined && status !== parsed.status) {
+        throw new ValidationError(
+          `Conflicting status filters: ?status=${status} and q=status:${parsed.status}`,
+        )
+      }
+      if (projectId !== undefined && parsed.project !== undefined) {
+        const matched = getProject(db, projectId)
+        if (!matched || matched.name.toLowerCase() !== parsed.project.toLowerCase()) {
+          throw new ValidationError('Conflicting project filters between ?projectId and q=project:')
+        }
+      }
+
+      const ftsQuery = buildFtsTextQuery(parsed.textTerms, parsed.phrases)
+      if (!ftsQuery && !hasStructuredFilters(parsed)) {
+        return c.json({
+          data: [],
+          meta: {
+            limit: limit ?? SEARCH_DEFAULT_LIMIT,
+            offset: offset ?? 0,
+            total: 0,
+            hasMore: false,
+          },
+        })
+      }
+
+      const page = repo.searchItems(db, {
+        type: parsed.type ?? type,
+        status: parsed.status ?? status,
         projectId,
-        query: ftsQuery,
+        projectName: parsed.project,
+        tags: parsed.tags,
+        before: parsed.before,
+        after: parsed.after,
+        hasAttachment: parsed.hasAttachment,
+        query: ftsQuery ?? null,
         limit: limit ?? SEARCH_DEFAULT_LIMIT,
         offset: offset ?? 0,
       })
-      return c.json({ data: items })
+      return c.json({
+        data: page.items,
+        meta: {
+          limit: page.limit,
+          offset: page.offset,
+          total: page.total,
+          hasMore: page.hasMore,
+        },
+      })
     }
 
     const items = repo.listItems(db, {
@@ -161,8 +208,21 @@ export function itemsRoutes(db: Db): Hono {
 
   app.delete('/:id', (c) => {
     const id = parseId(c.req.param('id'))
+    if (!repo.getItem(db, id)) return c.json({ error: { message: 'Item not found' } }, 404)
+
+    const stored = attachmentRepo.deleteAttachmentsForItem(db, id)
     const deleted = repo.deleteItem(db, id)
     if (!deleted) return c.json({ error: { message: 'Item not found' } }, 404)
+
+    if (attachmentConfig) {
+      for (const name of stored) {
+        try {
+          attachmentStorage.deleteAttachmentFile(attachmentConfig, name)
+        } catch {
+          // best-effort physical cleanup; DB rows are already gone
+        }
+      }
+    }
     return c.body(null, 204)
   })
 

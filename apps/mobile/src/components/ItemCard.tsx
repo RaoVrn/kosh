@@ -20,6 +20,7 @@ interface ItemCardProps {
   onPress: () => void
   onToggleDone?: () => void
   highlighted?: boolean
+  onActivate?: () => void
   onProcess?: () => void
   onArchive?: () => void
   onConvertToTask?: () => void
@@ -31,6 +32,7 @@ export function ItemCard({
   onPress,
   onToggleDone,
   highlighted,
+  onActivate,
   onProcess,
   onArchive,
   onConvertToTask,
@@ -45,95 +47,104 @@ export function ItemCard({
   const projectName = useProjectName(item.projectId)
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${typeLabel[item.type]}: ${item.title}`}
-      style={({ pressed }) => [
-        styles.card,
-        highlighted && styles.highlighted,
-        pressed && styles.pressed,
-      ]}
-    >
-      {showCheck ? (
+    <View style={[styles.card, highlighted && styles.highlighted]}>
+      <View style={styles.row}>
+        {showCheck ? (
+          <Pressable
+            onPress={onToggleDone}
+            hitSlop={10}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: done }}
+            accessibilityLabel={done ? 'Mark as not done' : 'Mark as done'}
+            style={[styles.check, done && styles.checkDone]}
+          >
+            {done ? <Icon name="check" size={13} color={colors.background} /> : null}
+          </Pressable>
+        ) : null}
+
         <Pressable
-          onPress={onToggleDone}
-          hitSlop={10}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: done }}
-          accessibilityLabel={done ? 'Mark as not done' : 'Mark as done'}
-          style={[styles.check, done && styles.checkDone]}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={`${typeLabel[item.type]}: ${item.title}`}
+          style={({ pressed }) => [styles.body, pressed && styles.pressed]}
         >
-          {done ? <Icon name="check" size={13} color={colors.background} /> : null}
-        </Pressable>
-      ) : null}
+          <Text style={[styles.title, done && styles.titleDone]} numberOfLines={2}>
+            {item.title}
+          </Text>
+          {item.snippet ? (
+            <Text style={styles.preview} numberOfLines={2}>
+              {item.snippet.replace(/<\/?mark>/g, '')}
+            </Text>
+          ) : item.body && item.body !== item.title ? (
+            <Text style={styles.preview} numberOfLines={1}>
+              {item.body}
+            </Text>
+          ) : null}
+          {isLink && domain ? (
+            <Text style={styles.url} numberOfLines={1}>
+              {domain}
+            </Text>
+          ) : item.url && !isLink ? (
+            <Text style={styles.url} numberOfLines={1}>
+              {item.url}
+            </Text>
+          ) : null}
 
-      <View style={styles.body}>
-        <Text style={[styles.title, done && styles.titleDone]} numberOfLines={2}>
-          {item.title}
-        </Text>
-        {item.body && item.body !== item.title ? (
-          <Text style={styles.preview} numberOfLines={1}>
-            {item.body}
-          </Text>
-        ) : null}
-        {isLink && domain ? (
-          <Text style={styles.url} numberOfLines={1}>
-            {domain}
-          </Text>
-        ) : item.url && !isLink ? (
-          <Text style={styles.url} numberOfLines={1}>
-            {item.url}
-          </Text>
-        ) : null}
+          {showTags ? (
+            <View style={styles.tagRow}>
+              {(item.tags ?? []).map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-        {showTags ? (
-          <View style={styles.tagRow}>
-            {(item.tags ?? []).map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
+          <View style={styles.footer}>
+            <TypeBadge type={item.type} />
+            {isLearning && item.priority ? (
+              <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
+            ) : null}
+            {isLearning && item.status !== 'inbox' ? (
+              <Badge label={learningStatusLabel[item.status]} />
+            ) : null}
+            {done && !isLearning ? <Badge label="Done" color={colors.success} /> : null}
+            {item.dueAt ? (
+              <Badge
+                label={formatDue(item.dueAt)}
+                color={isOverdue(item.dueAt) ? colors.danger : colors.textMuted}
+              />
+            ) : null}
+            {item.type === 'task' && recurrenceLabel(item.recurrence) ? (
+              <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color={colors.textFaint} />
+            ) : null}
+            {projectName ? <Text style={styles.projectChip}>↳ {projectName}</Text> : null}
+            {item.attachmentCount && item.attachmentCount > 0 ? (
+              <View style={styles.attachmentChip}>
+                <Icon name="paperclip" size={11} color={colors.textFaint} />
+                <Text style={styles.attachmentChipText}>{item.attachmentCount}</Text>
               </View>
-            ))}
-          </View>
-        ) : null}
-
-        <View style={styles.footer}>
-          <TypeBadge type={item.type} />
-          {isLearning && item.priority ? (
-            <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
-          ) : null}
-          {isLearning && item.status !== 'inbox' ? (
-            <Badge label={learningStatusLabel[item.status]} />
-          ) : null}
-          {done && !isLearning ? <Badge label="Done" color={colors.success} /> : null}
-          {item.dueAt ? (
-            <Badge
-              label={formatDue(item.dueAt)}
-              color={isOverdue(item.dueAt) ? colors.danger : colors.textMuted}
-            />
-          ) : null}
-          {item.type === 'task' && recurrenceLabel(item.recurrence) ? (
-            <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color={colors.textFaint} />
-          ) : null}
-          {projectName ? <Text style={styles.projectChip}>↳ {projectName}</Text> : null}
-          <View style={styles.spacer} />
-          <Text style={styles.time}>{relativeTime(item.updatedAt)}</Text>
-        </View>
-
-        {onProcess || onArchive || onConvertToTask || onOpenLink ? (
-          <View style={styles.actions}>
-            {onOpenLink ? <ActionButton label="Open" primary={false} onPress={onOpenLink} /> : null}
-            {onProcess ? <ActionButton label="Process" primary onPress={onProcess} /> : null}
-            {onConvertToTask ? (
-              <ActionButton label="Convert to task" primary={false} onPress={onConvertToTask} />
             ) : null}
-            {onArchive ? (
-              <ActionButton label="Archive" primary={false} onPress={onArchive} />
-            ) : null}
+            <View style={styles.spacer} />
+            <Text style={styles.time}>{relativeTime(item.updatedAt)}</Text>
           </View>
-        ) : null}
+        </Pressable>
       </View>
-    </Pressable>
+
+      {onActivate || onProcess || onArchive || onConvertToTask || onOpenLink ? (
+        <View style={styles.actions}>
+          {onOpenLink ? <ActionButton label="Open" primary={false} onPress={onOpenLink} /> : null}
+          {onActivate ? (
+            <ActionButton label="Activate" primary={false} onPress={onActivate} />
+          ) : null}
+          {onProcess ? <ActionButton label="Process" primary onPress={onProcess} /> : null}
+          {onConvertToTask ? (
+            <ActionButton label="Convert to task" primary={false} onPress={onConvertToTask} />
+          ) : null}
+          {onArchive ? <ActionButton label="Archive" primary={false} onPress={onArchive} /> : null}
+        </View>
+      ) : null}
+    </View>
   )
 }
 
@@ -164,14 +175,17 @@ function ActionButton({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   highlighted: {
@@ -253,6 +267,16 @@ const styles = StyleSheet.create({
   projectChip: {
     color: colors.textFaint,
     fontSize: 12,
+    fontWeight: '500',
+  },
+  attachmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  attachmentChipText: {
+    color: colors.textFaint,
+    fontSize: 11,
     fontWeight: '500',
   },
   actions: {

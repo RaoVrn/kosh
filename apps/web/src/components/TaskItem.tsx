@@ -22,19 +22,7 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
   const projectName = useProjectName(item.projectId)
 
   return (
-    <article
-      className="card"
-      onClick={onPress}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onPress()
-        }
-      }}
-      aria-label={item.title}
-    >
+    <div className="card" onClick={onPress}>
       <button
         type="button"
         className={`check${done ? ' done' : ''}`}
@@ -48,7 +36,17 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
       </button>
 
       <div className="card-body">
-        <p className={`task-title${done ? ' done' : ''}`}>{item.title}</p>
+        <button
+          type="button"
+          className="card-open"
+          onClick={(e) => {
+            e.stopPropagation()
+            onPress()
+          }}
+          aria-label={item.title}
+        >
+          <span className={`task-title${done ? ' done' : ''}`}>{item.title}</span>
+        </button>
         <div className="task-meta">
           {item.priority ? (
             <Badge label={priorityLabel[item.priority]} color={priorityColors[item.priority]} />
@@ -78,6 +76,6 @@ export function TaskItem({ item, onPress, onToggleDone }: TaskItemProps) {
           ) : null}
         </div>
       </div>
-    </article>
+    </div>
   )
 }

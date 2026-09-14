@@ -20,10 +20,28 @@ interface ItemCardProps {
   onPress: () => void
   onToggleDone?: () => void
   highlighted?: boolean
+  onActivate?: () => void
   onProcess?: () => void
   onArchive?: () => void
   onConvertToTask?: () => void
   onOpenLink?: () => void
+}
+
+function Snippet({ text }: { text: string }) {
+  const parts = text.split(/<mark>|<\/mark>/g)
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className="snippet-mark">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  )
 }
 
 export function ItemCard({
@@ -31,6 +49,7 @@ export function ItemCard({
   onPress,
   onToggleDone,
   highlighted,
+  onActivate,
   onProcess,
   onArchive,
   onConvertToTask,
@@ -42,23 +61,11 @@ export function ItemCard({
   const isLink = item.type === 'link'
   const domain = isLink && item.url ? domainFromUrl(item.url) : null
   const showTags = item.type !== 'task' && (item.tags?.length ?? 0) > 0
-  const hasActions = Boolean(onProcess || onArchive || onConvertToTask || onOpenLink)
+  const hasActions = Boolean(onActivate || onProcess || onArchive || onConvertToTask || onOpenLink)
   const projectName = useProjectName(item.projectId)
 
   return (
-    <article
-      className={`card${highlighted ? ' highlighted' : ''}`}
-      onClick={onPress}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onPress()
-        }
-      }}
-      aria-label={`${typeLabel[item.type]}: ${item.title}`}
-    >
+    <div className={`card${highlighted ? ' highlighted' : ''}`} onClick={onPress}>
       {showCheck ? (
         <button
           type="button"
@@ -74,8 +81,24 @@ export function ItemCard({
       ) : null}
 
       <div className="card-body">
-        <p className={`card-title${done ? ' done' : ''}`}>{item.title}</p>
-        {item.body && item.body !== item.title ? <p className="card-preview">{item.body}</p> : null}
+        <button
+          type="button"
+          className="card-open"
+          onClick={(e) => {
+            e.stopPropagation()
+            onPress()
+          }}
+          aria-label={`${typeLabel[item.type]}: ${item.title}`}
+        >
+          <span className={`card-title${done ? ' done' : ''}`}>{item.title}</span>
+        </button>
+        {item.snippet ? (
+          <p className="card-preview">
+            <Snippet text={item.snippet} />
+          </p>
+        ) : item.body && item.body !== item.title ? (
+          <p className="card-preview">{item.body}</p>
+        ) : null}
         {isLink && domain ? (
           <p className="card-url">{domain}</p>
         ) : item.url && !isLink ? (
@@ -111,6 +134,12 @@ export function ItemCard({
             <Badge label={`↻ ${recurrenceLabel(item.recurrence)}`} color="#8b8b96" />
           ) : null}
           {projectName ? <span className="project-chip">↳ {projectName}</span> : null}
+          {item.attachmentCount && item.attachmentCount > 0 ? (
+            <span className="attachment-chip">
+              <Icon name="paperclip" size={11} />
+              {item.attachmentCount}
+            </span>
+          ) : null}
           <span className="spacer" />
           <span className="card-time">{relativeTime(item.updatedAt)}</span>
         </div>
@@ -127,6 +156,18 @@ export function ItemCard({
                 }}
               >
                 Open
+              </button>
+            ) : null}
+            {onActivate ? (
+              <button
+                type="button"
+                className="card-action"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onActivate()
+                }}
+              >
+                Activate
               </button>
             ) : null}
             {onProcess ? (
@@ -168,6 +209,6 @@ export function ItemCard({
           </div>
         ) : null}
       </div>
-    </article>
+    </div>
   )
 }

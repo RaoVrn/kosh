@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { canUseLocalNotifications } from '../src/notifications/platform'
 
 vi.mock('react-native', () => ({ Platform: { OS: 'web' } }))
+vi.mock('expo', () => ({ isRunningInExpoGo: () => false }))
 
 const nativeCalls: string[] = []
 vi.mock('expo-notifications', () => ({
@@ -36,7 +37,7 @@ describe('notification platform guards', () => {
     expect(canUseLocalNotifications('android')).toBe(true)
   })
 
-  it('schedule.ts never calls native-only APIs on web', async () => {
+  it('schedule.ts never loads or calls native-only APIs on web', async () => {
     const { syncTaskReminderNotifications } = await import('../src/notifications/schedule')
     const plans = [{ itemId: 'x', title: 't', body: 'b', at: new Date() }]
     const result = await syncTaskReminderNotifications(plans)

@@ -1,11 +1,19 @@
 import type { Db } from '../db.js'
 import type { Item, ItemStatus, ItemType, Priority, Recurrence } from '@kosh/shared'
 import { uid } from '@kosh/shared'
+import { listAttachmentsByItem } from '../attachments/repo.js'
 
 const COLUMNS =
   'id, type, status, title, body, url, due_at, reminder_at, reminded_at, priority, tags, ' +
   'recurrence_frequency, recurrence_weekdays, recurrence_month_day, recurrence_id, project_id, ' +
   'created_at, updated_at, done_at'
+
+function readColumns(prefix = ''): string {
+  const cols = COLUMNS.split(', ')
+    .map((c) => (prefix ? `${prefix}.${c}` : c))
+    .join(', ')
+  return `${cols}, (SELECT COUNT(*) FROM attachments a WHERE a.item_id = items.id) AS attachment_count`
+}
 
 export interface ItemRow {
   id: string
@@ -27,6 +35,7 @@ export interface ItemRow {
   created_at: string
   updated_at: string
   done_at: string | null
+  attachment_count: number
 }
 
 export interface CreateItemData {
@@ -58,9 +67,22 @@ export interface SearchItemFilters {
   type?: string
   status?: string
   projectId?: string
-  query: string
+  projectName?: string
+  tags?: string[]
+  before?: string
+  after?: string
+  hasAttachment?: boolean
+  query: string | null
   limit?: number
   offset?: number
+}
+
+export interface SearchPage {
+  items: Item[]
+  total: number
+  limit: number
+  offset: number
+  hasMore: boolean
 }
 
 function parseRecurrence(row: ItemRow): Recurrence | null {
@@ -112,6 +134,7 @@ function toItem(row: ItemRow): Item {
     recurrence: parseRecurrence(row),
     recurrenceId: row.recurrence_id,
     projectId: row.project_id,
+    attachmentCount: Number(row.attachment_count ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     doneAt: row.done_at,
@@ -213,7 +236,7 @@ export function listItems(db: Db, filters: ListFilters = {}): Item[] {
     params.push(filters.projectId)
   }
   let sql =
-    `SELECT ${COLUMNS} FROM items` +
+    `SELECT ${readColumns()} FROM items` +
     (where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '') +
     ' ORDER BY created_at DESC'
   if (filters.limit !== undefined) {
@@ -228,16 +251,16 @@ export function listItems(db: Db, filters: ListFilters = {}): Item[] {
   return rows.map(toItem)
 }
 
-export function searchItems(db: Db, filters: SearchItemFilters): Item[] {
-  const cols = COLUMNS.split(', ')
-    .map((c) => `items.${c}`)
-    .join(', ')
-  let sql =
-    `SELECT ${cols} FROM items ` +
-    'JOIN (SELECT rowid, bm25(items_fts) AS rank FROM items_fts WHERE items_fts MATCH ?) AS f ' +
-    'ON f.rowid = items.rowid'
-  const params: (string | number)[] = [filters.query]
+export function searchItems(db: Db, filters: SearchItemFilters): SearchPage {
   const where: string[] = []
+  const params: (string | number)[] = []
+  const useFts = filters.query !== null
+
+  if (useFts) {
+    where.push('items_fts MATCH ?')
+    params.push(filters.query as string)
+  }
+
   if (filters.type) {
     where.push('items.type = ?')
     params.push(filters.type)
@@ -250,23 +273,74 @@ export function searchItems(db: Db, filters: SearchItemFilters): Item[] {
     where.push('items.project_id = ?')
     params.push(filters.projectId)
   }
-  if (where.length > 0) sql += ` WHERE ${where.join(' AND ')}`
-  sql += ' ORDER BY f.rank'
-  if (filters.limit !== undefined) {
-    sql += ' LIMIT ?'
-    params.push(filters.limit)
+  if (filters.projectName) {
+    where.push('items.project_id IN (SELECT id FROM projects WHERE lower(name) = lower(?))')
+    params.push(filters.projectName)
   }
-  if (filters.offset) {
-    sql += ' OFFSET ?'
-    params.push(filters.offset)
+  for (const tag of filters.tags ?? []) {
+    where.push(
+      'EXISTS (SELECT 1 FROM json_each(items.tags) WHERE lower(json_each.value) = lower(?))',
+    )
+    params.push(tag)
   }
-  const rows = db.prepare(sql).all(...params) as unknown as ItemRow[]
-  return rows.map(toItem)
+  if (filters.before) {
+    where.push('items.created_at < ?')
+    params.push(filters.before)
+  }
+  if (filters.after) {
+    where.push('items.created_at > ?')
+    params.push(filters.after)
+  }
+  if (filters.hasAttachment) {
+    where.push('(SELECT COUNT(*) FROM attachments a WHERE a.item_id = items.id) > 0')
+  }
+
+  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
+  const joinSql = useFts ? ' JOIN items_fts ON items_fts.rowid = items.rowid' : ''
+  const limit = filters.limit ?? 25
+  const offset = filters.offset ?? 0
+
+  const totalRow = db
+    .prepare(`SELECT COUNT(*) AS total FROM items${joinSql} ${whereSql}`)
+    .get(...params) as { total: number }
+  const total = Number(totalRow.total)
+
+  const selectSnippet = useFts
+    ? ", snippet(items_fts, -1, '<mark>', '</mark>', '…', 14) AS snippet"
+    : ''
+  const rows = db
+    .prepare(
+      `SELECT ${readColumns('items')}${selectSnippet},
+        ${useFts ? 'bm25(items_fts, -2.0, 0.0, 0.0, -1.0, 0.0)' : '0'} AS rank
+       FROM items${joinSql}
+       ${whereSql}
+       ORDER BY rank
+       LIMIT ? OFFSET ?`,
+    )
+    .all(...params, limit, offset) as unknown as (ItemRow & { snippet: string | null })[]
+
+  const items = rows.map((row) => {
+    const item = toItem(row)
+    item.snippet = row.snippet
+    return item
+  })
+
+  return {
+    items,
+    total,
+    limit,
+    offset,
+    hasMore: offset + items.length < total,
+  }
 }
 
 export function getItem(db: Db, id: string): Item | null {
-  const row = db.prepare(`SELECT ${COLUMNS} FROM items WHERE id = ?`).get(id) as ItemRow | undefined
-  return row ? toItem(row) : null
+  const row = db.prepare(`SELECT ${readColumns()} FROM items WHERE id = ?`).get(id) as
+    ItemRow | undefined
+  if (!row) return null
+  const item = toItem(row)
+  item.attachments = listAttachmentsByItem(db, id)
+  return item
 }
 
 export function updateItem(db: Db, id: string, patch: UpdateItemData): Item | null {

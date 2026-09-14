@@ -27,10 +27,11 @@ import { Icon } from './Icon'
 import { TagInput } from './TagInput'
 import { RecurrenceControl } from './RecurrenceControl'
 import { ProjectSelector } from './ProjectSelector'
+import { ItemAttachments } from './ItemAttachments'
 
 export function ItemDetailModal() {
   const { selectedItemId, closeItem } = useNav()
-  const { getItem, updateItem, toggleDone, removeItem } = useItems()
+  const { getItem, updateItem, toggleDone, removeItem, client } = useItems()
 
   const item = selectedItemId ? getItem(selectedItemId) : undefined
 
@@ -285,6 +286,10 @@ export function ItemDetailModal() {
 
         <p className="modal-meta">Created {formatFull(item.createdAt)}</p>
         {item.doneAt ? <p className="modal-meta">Completed {formatFull(item.doneAt)}</p> : null}
+
+        <div className="modal-section">
+          <ItemAttachments itemId={item.id} getAttachmentUrl={client.getAttachmentUrl} />
+        </div>
 
         <div className="modal-actions">
           <button type="button" className="action-row" onClick={() => toggleDone(item.id)}>

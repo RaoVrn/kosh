@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import type { CaptureResult, ItemType, Priority, Recurrence } from '@kosh/shared'
+import type { CaptureResult, Item, ItemType, Priority, Recurrence } from '@kosh/shared'
 import {
   ITEM_TYPES,
   PRIORITIES,
@@ -26,6 +26,22 @@ import { colors, radius, spacing } from '../theme'
 import { TagInput } from './TagInput'
 import { RecurrenceControl } from './RecurrenceControl'
 import { ProjectSelector } from './ProjectSelector'
+import { Icon } from './Icon'
+import * as DocumentPicker from 'expo-document-picker'
+
+interface PendingFile {
+  name: string
+  mime: string
+  size: number
+  uri: string
+  file?: File
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 interface CapturePreviewSheetProps {
   result: CaptureResult
@@ -42,7 +58,7 @@ export function CapturePreviewSheet({
   onCancel,
   onInbox,
 }: CapturePreviewSheetProps) {
-  const { addItem } = useItems()
+  const { addItem, client } = useItems()
   const [type, setType] = useState<ItemType>(result.type)
   const [title, setTitle] = useState(result.title)
   const [body, setBody] = useState(result.body ?? '')
@@ -53,6 +69,7 @@ export function CapturePreviewSheet({
   const [tags, setTags] = useState<string[]>(result.tags ?? [])
   const [recurrence, setRecurrence] = useState<Recurrence | null>(result.recurrence ?? null)
   const [projectId, setProjectId] = useState<string | null>(result.projectId ?? null)
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -62,12 +79,45 @@ export function CapturePreviewSheet({
   const reminderConflict = !!dueAt && !!reminderAt && new Date(reminderAt) > new Date(dueAt)
   const canSave = title.trim().length > 0 && urlValid && !reminderConflict && !saving
 
+  const handlePick = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'application/pdf',
+          'text/plain',
+          'text/markdown',
+          'text/csv',
+        ],
+        copyToCacheDirectory: true,
+      })
+      if (result.canceled || result.assets.length === 0) return
+      const asset = result.assets[0]
+      setPendingFiles((prev) => [
+        ...prev,
+        {
+          name: asset.name,
+          mime: asset.file ? asset.file.type : (asset.mimeType ?? 'application/octet-stream'),
+          size: asset.size ?? 0,
+          uri: asset.uri,
+          file: asset.file,
+        },
+      ])
+    } catch {
+      setError('Could not pick a file')
+    }
+  }
+
   const handleSave = async () => {
     if (!canSave) return
     setSaving(true)
     setError(null)
+    let created: Item
     try {
-      await addItem({
+      created = await addItem({
         title,
         type,
         body: body || undefined,
@@ -79,11 +129,35 @@ export function CapturePreviewSheet({
         recurrence: isTask ? recurrence : null,
         projectId,
       })
-      onSave()
     } catch (err) {
       setError(errorMessage(err, 'Could not save the item'))
       setSaving(false)
+      return
     }
+
+    const pending = [...pendingFiles]
+    if (pending.length > 0) {
+      try {
+        for (const p of pending) {
+          await client.uploadAttachment(
+            created.id,
+            p.file
+              ? { blob: p.file, name: p.file.name, mime: p.file.type }
+              : { uri: p.uri, name: p.name, mime: p.mime },
+          )
+        }
+        onSave()
+        return
+      } catch (err) {
+        setPendingFiles(pending)
+        setError(
+          `${errorMessage(err, 'Attachment upload failed')} — the item was saved. You can retry the attachment.`,
+        )
+        setSaving(false)
+        return
+      }
+    }
+    onSave()
   }
 
   return (
@@ -240,6 +314,46 @@ export function CapturePreviewSheet({
             ) : null}
 
             {error ? <Text style={[styles.meta, styles.error]}>{error}</Text> : null}
+
+            <View style={styles.section}>
+              <View style={styles.labelRow}>
+                <Text style={styles.sectionLabel}>Attachments</Text>
+                <Pressable
+                  onPress={() => void handlePick()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add pending attachment"
+                  style={styles.pickButton}
+                >
+                  <Text style={styles.pickText}>+ Add</Text>
+                </Pressable>
+              </View>
+              {pendingFiles.length === 0 ? (
+                <Text style={[styles.meta, styles.faint]}>
+                  Attachments are uploaded after you confirm.
+                </Text>
+              ) : (
+                pendingFiles.map((p, i) => (
+                  <View key={`${p.name}-${i}`} style={styles.pendingRow}>
+                    <Icon name="paperclip" size={15} color={colors.textMuted} />
+                    <View style={styles.pendingMeta}>
+                      <Text style={styles.pendingName} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                      <Text style={styles.pendingSub}>{formatSize(p.size)}</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${p.name}`}
+                      style={styles.removeButton}
+                    >
+                      <Icon name="trash" size={15} color={colors.warning} />
+                    </Pressable>
+                  </View>
+                ))
+              )}
+            </View>
 
             <Pressable
               onPress={() => void handleSave()}
@@ -402,6 +516,55 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     fontSize: 12,
     marginTop: spacing.sm,
+  },
+  faint: {
+    marginTop: 0,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  pickButton: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pickText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  pendingMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pendingName: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pendingSub: {
+    color: colors.textFaint,
+    fontSize: 11,
+  },
+  removeButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   warning: {
     color: colors.warning,

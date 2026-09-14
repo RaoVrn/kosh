@@ -16,31 +16,66 @@ you when necessary.
 ## Current Project Status
 
 ```
-ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH + SMART & VOICE CAPTURE
+ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH 2.0 + SMART & VOICE CAPTURE
 + INBOX PROCESSING QUEUE + TODAY COMMAND CENTER + RECURRING TASKS + PROJECTS
++ ATTACHMENTS
 ```
 
-- **API (`apps/api`)**: `/api/v1/items` CRUD for all five types + FTS5 search +
-  `/api/v1/notifications` + `/api/v1/projects` (CRUD, case-insensitive unique
-  names, archive, delete detaches items via `project_id = NULL`) +
-  `/api/v1/capture/interpret` (AI-suggested, validated `CaptureResult`; never
-  persists) + `/api/v1/transcribe` (multipart audio → text). Reminder
-  scheduler fires exactly once. Root `.env` auto-loaded on startup
-  (`src/env.ts`).
+- **API (`apps/api`)**: `/api/v1/items` CRUD for all five types + FTS5 search
+  with operators + `/api/v1/notifications` + `/api/v1/projects` (CRUD,
+  case-insensitive unique names, archive, delete detaches items via
+  `project_id = NULL`) + `/api/v1/items/:id/attachments` +
+  `/api/v1/attachments/:id` (upload, list, serve, delete; metadata in SQLite,
+  bytes on local disk) + `/api/v1/capture/interpret` (AI-suggested, validated
+  `CaptureResult`; never persists) + `/api/v1/transcribe` (multipart audio →
+  text). Reminder scheduler fires exactly once. Root `.env` auto-loaded on
+  startup (`src/env.ts`).
+- **Search 2.0**: FTS5 (`items_fts`, migration `009`) indexes title/body/url/
+  tags + `project_name` (kept in sync by item triggers and a project-rename
+  trigger). Query operators: `type:`, `status:`, `project:"Name"`, `tag:`,
+  `before:/after:YYYY-MM-DD` (UTC boundaries on `created_at`),
+  `has:attachment`; parsed server-side (`src/search/queryParser.ts`,
+  deterministic, 400 on invalid values). Results carry bm25 ranking (title/
+  tags boosted), FTS5 `snippet()` with `<mark>` highlighting, and pagination
+  `meta {limit, offset, total, hasMore}`. Contradictory `?type=` vs `type:`
+  → 400. No semantic/vector search.
+- **Inbox processing (Smart workspace)**: `POST /api/v1/items/:id/process`
+  (user-triggered AI review of an inbox/active item → ephemeral
+  `InboxProcessingResult`, max 5 suggestions, source NEVER modified) +
+  `POST /api/v1/items/:id/process/accept` (validates each suggestion through
+  the same item validation, resolves projects, creates the batch atomically
+  in a transaction, then archives the source only when `markSourceProcessed`
+  and at least one item was created). Duplicates skipped deterministically
+  via `skipDuplicateTitles`. AI output validated server-side
+  (`src/ai/process/validate.ts`, dedicated prompt `processingPromptV1`);
+  never creates projects; attachments stay on the source.
+- **Search UI**: web + mobile Search screens build operator queries via
+  chips (type/status/attachment) + project/tag/type/status suggestions;
+  device-local recent searches (max 8, localStorage or in-memory fallback);
+  Load more; snippets rendered with highlighting.
+- **Attachments**: `attachments` table (migration `008`, FK
+  `ON DELETE CASCADE`) + files under `KOSH_ATTACHMENT_DIR` (default
+  `apps/api/data/attachments`, git-ignored). Allowed: jpeg/png/webp/gif,
+  pdf, txt/md/csv; max `KOSH_MAX_ATTACHMENT_SIZE_BYTES` (25 MB). Stored as
+  `<attachment-id>.<ext>`; clients never see `storedName`. Item lists carry
+  `attachmentCount`; item detail carries `attachments`. Deleting an item
+  removes its files too; recurrence does NOT copy attachments.
 - **Projects**: `items.project_id` (nullable FK, `ON DELETE SET NULL`,
   `PRAGMA foreign_keys = ON`), one item ≤ one project, any item type.
   Archived projects keep item associations but reject new assignments.
   Projects are context only — independent of types/statuses/tags/priority.
 - **Smart Capture**: resolves an AI-suggested `projectName` to an existing
   active project (exact case-insensitive match) — never creates one; the
-  confirmation preview shows an editable project selector; voice flows
-  benefit automatically.
+  confirmation preview shows an editable project selector and pending
+  attachments (uploaded only after the item is created); voice flows benefit
+  automatically.
 - **Recurring tasks**: `recurrence (none|daily|weekly|monthly)` +
   `recurrenceId`; completion runs an atomic transaction
   (`recurrence/service.ts`): mark done → local-calendar next due
   (`recurrence/calculation.ts`, month-end clamped) → exactly ONE active next
   occurrence, preserving metadata, reminder offset, series id, AND
-  `projectId`. Idempotent; archive/delete never replace.
+  `projectId` (attachments are intentionally not copied). Idempotent;
+  archive/delete never replace.
 - **Inbox is a processing queue**: quick per-card actions (Process → active,
   Archive, Convert to task, Open link); editing moves inbox → active; badge
   counts `status = inbox` live.
@@ -48,10 +83,12 @@ ALL FIVE CONTENT TYPES + REMINDERS + NOTIFICATIONS + SEARCH + SMART & VOICE CAPT
   Reminders + Recently captured; greeting + quick actions; shared
   `getTodayCommandCenter`.
 - **Web**: shortcuts `N`/`T`/`/` (guarded), Escape closes modals, Projects
-  screen with per-type filters, project selector in the detail editor.
+  screen with per-type filters, project selector + attachments in the detail
+  editor.
 - **Mobile**: same processing actions + Today sections + Projects list/detail,
-  thumb-friendly selectors.
-- No auth, push, recurring reminders, or semantic search yet.
+  thumb-friendly selectors, attachments via `expo-document-picker`, opened
+  with `Linking`.
+- No auth, push, OCR/attachment-content indexing, or semantic search yet.
 - Next milestone: **Phase 8 — Polish and deployment** (see `docs/ROADMAP.md`).
 
 This status section must be updated whenever a milestone completes or the
@@ -175,6 +212,10 @@ Environment (all optional):
   valid on both Groq and OpenAI — `whisper-1` is NOT valid on Groq).
 - `AI_TIMEOUT_MS` — provider timeout (default `15000`).
 - `TRANSCRIPTION_TIMEOUT_MS` — transcription timeout (default `30000`).
+- `KOSH_ATTACHMENT_DIR` — where uploaded attachment bytes live (default
+  `apps/api/data/attachments`, git-ignored).
+- `KOSH_MAX_ATTACHMENT_SIZE_BYTES` — max upload size (default `26214400`,
+  25 MB).
 
 The API automatically loads a **root `.env`** (monorepo root) at startup via
 `apps/api/src/env.ts` — real environment variables always take precedence over

@@ -27,12 +27,19 @@ import { SearchScreen } from '../screens/SearchScreen'
 import { NotificationsScreen } from '../screens/NotificationsScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
 import { planTaskReminders } from '../notifications/plan'
-import { syncTaskReminderNotifications } from '../notifications/schedule'
+import {
+  setupLocalNotificationHandler,
+  syncTaskReminderNotifications,
+} from '../notifications/schedule'
 
 export function AppShell() {
   const { width } = useWindowDimensions()
   const isDesktop = width >= layout.desktopBreakpoint
   const { loading, error, refresh, items } = useItems()
+
+  useEffect(() => {
+    void setupLocalNotificationHandler()
+  }, [])
 
   useEffect(() => {
     void syncTaskReminderNotifications(planTaskReminders(items)).catch((err) => {

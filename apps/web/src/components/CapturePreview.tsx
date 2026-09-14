@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { CaptureResult, ItemType, Priority, Recurrence } from '@kosh/shared'
+import { useRef, useState } from 'react'
+import type { CaptureResult, Item, ItemType, Priority, Recurrence } from '@kosh/shared'
 import {
   ITEM_TYPES,
   PRIORITIES,
@@ -18,6 +18,16 @@ import { Chip, DateTimeField } from './fields'
 import { RecurrenceControl } from './RecurrenceControl'
 import { ProjectSelector } from './ProjectSelector'
 
+interface PendingFile {
+  file: File
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 interface CapturePreviewProps {
   result: CaptureResult
   originalText: string
@@ -33,7 +43,7 @@ export function CapturePreview({
   onCancel,
   onInbox,
 }: CapturePreviewProps) {
-  const { addItem } = useItems()
+  const { addItem, client } = useItems()
   const [type, setType] = useState<ItemType>(result.type)
   const [title, setTitle] = useState(result.title)
   const [body, setBody] = useState(result.body ?? '')
@@ -44,8 +54,10 @@ export function CapturePreview({
   const [tags, setTags] = useState<string[]>(result.tags ?? [])
   const [recurrence, setRecurrence] = useState<Recurrence | null>(result.recurrence ?? null)
   const [projectId, setProjectId] = useState<string | null>(result.projectId ?? null)
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isTask = type === 'task'
   const isLearning = type === 'learning'
@@ -57,8 +69,9 @@ export function CapturePreview({
     if (!canSave) return
     setSaving(true)
     setError(null)
+    let created: Item
     try {
-      await addItem({
+      created = await addItem({
         title,
         type,
         body: body || undefined,
@@ -70,11 +83,38 @@ export function CapturePreview({
         recurrence: isTask ? recurrence : null,
         projectId,
       })
-      onSave()
     } catch (err) {
       setError(errorMessage(err, 'Could not save the item'))
       setSaving(false)
+      return
     }
+
+    const pending = [...pendingFiles]
+    if (pending.length > 0) {
+      try {
+        for (const p of pending) {
+          await uploadTo(created.id, p.file)
+        }
+        onSave()
+        return
+      } catch (err) {
+        setPendingFiles(pending)
+        setError(
+          `${errorMessage(err, 'Attachment upload failed')} — the item was saved. You can retry the attachment.`,
+        )
+        setSaving(false)
+        return
+      }
+    }
+    onSave()
+  }
+
+  const uploadTo = async (itemId: string, file: File) => {
+    await client.uploadAttachment(itemId, {
+      blob: file,
+      name: file.name,
+      mime: file.type || 'application/octet-stream',
+    })
   }
 
   return (
@@ -205,6 +245,53 @@ export function CapturePreview({
       ) : null}
 
       {error ? <p className="modal-meta error-text">{error}</p> : null}
+
+      <div className="modal-section">
+        <div className="modal-label-row">
+          <div className="modal-label">Attachments</div>
+          <button
+            type="button"
+            className="btn-secondary attachments-add"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            + Add
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) setPendingFiles((prev) => [...prev, { file }])
+            if (fileInputRef.current) fileInputRef.current.value = ''
+          }}
+          aria-label="Add pending attachment"
+        />
+        {pendingFiles.length === 0 ? (
+          <p className="modal-meta">Attachments are uploaded after you confirm.</p>
+        ) : (
+          <ul className="attachment-list">
+            {pendingFiles.map((p, i) => (
+              <li key={`${p.file.name}-${i}`} className="attachment-row">
+                <Icon name="paperclip" size={14} />
+                <div className="attachment-meta">
+                  <span className="attachment-name">{p.file.name}</span>
+                  <span className="attachment-sub">{formatSize(p.file.size)}</span>
+                </div>
+                <button
+                  type="button"
+                  className="attachment-delete"
+                  onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                  aria-label={`Remove ${p.file.name}`}
+                >
+                  <Icon name="trash" size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="modal-actions">
         <button

@@ -8,6 +8,7 @@ import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
 import { SmartCaptureModal } from '../components/SmartCaptureModal'
 import { VoiceCaptureModal } from '../components/VoiceCaptureModal'
+import { InboxProcessModal } from '../components/InboxProcessModal'
 
 interface Feedback {
   message: string
@@ -15,8 +16,9 @@ interface Feedback {
 }
 
 export function InboxScreen() {
-  const { items, addItem, toggleDone, updateItem } = useItems()
+  const { items, addItem, toggleDone, updateItem, refresh } = useItems()
   const { openItem, captureFocusRequest } = useNav()
+  const [processingItem, setProcessingItem] = useState<Item | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export function InboxScreen() {
     setFeedback({ message: 'Added', isError: false })
   }
 
-  const processItem = (item: Item) => {
+  const activateItem = (item: Item) => {
     void updateItem(item.id, { status: 'active' })
   }
 
@@ -106,13 +108,25 @@ export function InboxScreen() {
             highlighted={item.id === highlightId}
             onPress={() => openItem(item.id)}
             onToggleDone={item.type === 'task' ? () => toggleDone(item.id) : undefined}
-            onProcess={() => processItem(item)}
+            onActivate={() => activateItem(item)}
+            onProcess={() => setProcessingItem(item)}
             onArchive={() => archiveItem(item)}
             onConvertToTask={item.type !== 'task' ? () => convertToTask(item) : undefined}
             onOpenLink={item.type === 'link' && item.url ? () => openLink(item) : undefined}
           />
         ))
       )}
+
+      {processingItem ? (
+        <InboxProcessModal
+          item={processingItem}
+          onClose={() => setProcessingItem(null)}
+          onDone={() => {
+            setProcessingItem(null)
+            void refresh()
+          }}
+        />
+      ) : null}
 
       {smartText !== null ? (
         <SmartCaptureModal

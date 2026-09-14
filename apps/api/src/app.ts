@@ -5,18 +5,28 @@ import { healthRoutes } from './routes/health.js'
 import { BadJsonError, itemsRoutes } from './routes/items.js'
 import { notificationsRoutes } from './routes/notifications.js'
 import { projectsRoutes } from './routes/projects.js'
+import { attachmentsRoutes } from './routes/attachments.js'
 import { captureRoutes } from './routes/capture.js'
 import { transcribeRoutes } from './routes/transcribe.js'
+import { processRoutes } from './routes/process.js'
+import { getAttachmentConfig } from './attachments/config.js'
+import type { AttachmentConfig } from './attachments/config.js'
 import { ValidationError } from './items/validation.js'
 import type { CaptureService } from './ai/capture/service.js'
 import type { TranscriptionService } from './ai/transcription/service.js'
+import type { ProcessingService } from './ai/process/service.js'
 
 export interface AppServices {
   capture?: CaptureService
   transcribe?: TranscriptionService
+  process?: ProcessingService
 }
 
-export function createApp(db: Db, services: AppServices = {}): Hono {
+export function createApp(
+  db: Db,
+  services: AppServices = {},
+  attachmentConfig: AttachmentConfig = getAttachmentConfig(),
+): Hono {
   const app = new Hono()
 
   app.use(
@@ -45,10 +55,12 @@ export function createApp(db: Db, services: AppServices = {}): Hono {
 
   app.get('/', (c) => c.json({ name: 'kosh-api', status: 'ok' }))
   app.route('/api/v1', healthRoutes(db))
-  app.route('/api/v1/items', itemsRoutes(db))
+  app.route('/api/v1/items', itemsRoutes(db, attachmentConfig))
   app.route('/api/v1/notifications', notificationsRoutes(db))
   app.route('/api/v1/projects', projectsRoutes(db))
+  app.route('/api/v1', attachmentsRoutes(db, attachmentConfig))
   app.route('/api/v1/capture', captureRoutes(db, services.capture))
+  app.route('/api/v1', processRoutes(db, services.process))
   app.route('/api/v1/transcribe', transcribeRoutes(services.transcribe))
 
   return app

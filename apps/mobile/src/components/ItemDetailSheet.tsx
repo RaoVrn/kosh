@@ -32,11 +32,12 @@ import { Icon } from './Icon'
 import { TagInput } from './TagInput'
 import { RecurrenceControl } from './RecurrenceControl'
 import { ProjectSelector } from './ProjectSelector'
+import { ItemAttachments } from './ItemAttachments'
 import { useCallback } from 'react'
 
 export function ItemDetailSheet() {
   const { selectedItemId, closeItem } = useNav()
-  const { getItem, updateItem, toggleDone, removeItem } = useItems()
+  const { getItem, updateItem, toggleDone, removeItem, client } = useItems()
   const { width } = useWindowDimensions()
   const isDesktop = width >= layout.desktopBreakpoint
 
@@ -283,6 +284,10 @@ export function ItemDetailSheet() {
             {item.doneAt ? (
               <Text style={styles.meta}>Completed {formatFull(item.doneAt)}</Text>
             ) : null}
+
+            <View style={styles.section}>
+              <ItemAttachments itemId={item.id} getAttachmentUrl={client.getAttachmentUrl} />
+            </View>
 
             <View style={styles.actions}>
               <Pressable

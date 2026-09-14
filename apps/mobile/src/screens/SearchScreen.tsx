@@ -1,122 +1,222 @@
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { ITEM_TYPES, typeLabel, useItems, useServerSearch } from '@kosh/shared'
-import type { SearchTypeFilter } from '@kosh/shared'
+import { useEffect, useMemo, useState } from 'react'
+import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import {
+  ITEM_TYPES,
+  addRecentSearch,
+  clearRecentSearches,
+  getRecentSearches,
+  typeLabel,
+  useItems,
+  useProjects,
+  useServerSearch,
+} from '@kosh/shared'
+import type { ItemType, SearchTypeFilter } from '@kosh/shared'
 import { colors, radius, spacing } from '../theme'
 import { useNav } from '../state/NavContext'
 import { Content } from '../components/Content'
 import { PageHeader } from '../components/PageHeader'
 import { ItemCard } from '../components/ItemCard'
 import { EmptyState } from '../components/EmptyState'
-import { Icon } from '../components/Icon'
 
-const FILTERS: SearchTypeFilter[] = ['all', ...ITEM_TYPES]
+type StatusFilter = 'all' | 'inbox' | 'active' | 'done' | 'archived'
 
 export function SearchScreen() {
   const { toggleDone } = useItems()
   const { openItem } = useNav()
-  const {
-    query,
-    setQuery,
-    filter,
-    setFilter,
-    results,
-    loading,
-    error,
-    searched,
-    clear,
-    patchResult,
-  } = useServerSearch()
+  const { projects } = useProjects()
+  const { items } = useItems()
+  const [input, setInput] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [hasAttachmentFilter, setHasAttachmentFilter] = useState(false)
+  const [recent, setRecent] = useState<string[]>(() => getRecentSearches())
+
+  const hook = useServerSearch()
+
+  const effectiveQuery = useMemo(() => {
+    const parts: string[] = []
+    if (input.trim()) parts.push(input.trim())
+    if (hook.filter !== 'all') parts.push(`type:${hook.filter}`)
+    if (statusFilter !== 'all') parts.push(`status:${statusFilter}`)
+    if (hasAttachmentFilter) parts.push('has:attachment')
+    return parts.join(' ')
+  }, [input, hook.filter, statusFilter, hasAttachmentFilter])
+
+  useEffect(() => {
+    hook.setQuery(effectiveQuery)
+  }, [effectiveQuery])
+
+  const commitSearch = (q: string) => {
+    setInput(q)
+    setRecent(addRecentSearch(q))
+    Keyboard.dismiss()
+  }
 
   const handleToggleDone = (id: string) => {
-    const current = results.find((i) => i.id === id)
+    const current = hook.results.find((i) => i.id === id)
     if (!current) return
     const next = current.status === 'done' ? 'active' : 'done'
-    patchResult(id, {
+    hook.patchResult(id, {
       status: next,
       doneAt: next === 'done' ? new Date().toISOString() : null,
     })
     void toggleDone(id)
   }
 
+  const handleOpen = (id: string) => {
+    if (input.trim()) setRecent(addRecentSearch(effectiveQuery))
+    openItem(id)
+  }
+
   return (
     <Content>
-      <PageHeader title="Search" subtitle="Find anything you've captured." />
+      <PageHeader
+        title="Search"
+        subtitle="Find anything you've captured."
+        count={hook.searched && hook.total > 0 ? hook.total : undefined}
+      />
 
       <View style={styles.searchBar}>
-        <Icon name="search" size={18} color={colors.textFaint} />
         <TextInput
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
+          style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={() => input.trim() && setRecent(addRecentSearch(effectiveQuery))}
           placeholder="Search tasks, notes, ideas…"
           placeholderTextColor={colors.textFaint}
-          autoFocus={Platform.OS === 'web'}
           accessibilityLabel="Search"
+          autoCapitalize="none"
+          autoCorrect={false}
         />
-        {query.length > 0 ? (
+        {input ? (
           <Pressable
-            onPress={clear}
-            hitSlop={8}
+            onPress={() => {
+              hook.clear()
+              setInput('')
+              setStatusFilter('all')
+              setHasAttachmentFilter(false)
+            }}
+            hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Clear search"
-            style={styles.clear}
+            style={styles.clearButton}
           >
-            <Icon name="x" size={18} color={colors.textMuted} />
+            <Text style={styles.clearText}>✕</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filters}
-        contentContainerStyle={styles.filtersInner}
-      >
-        {FILTERS.map((f) => {
-          const active = filter === f
-          const label = f === 'all' ? 'All' : typeLabel[f]
-          return (
-            <Pressable
-              key={f}
-              onPress={() => setFilter(f)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`Filter by ${label}`}
-              style={[styles.filter, active && styles.filterActive]}
-            >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
-            </Pressable>
-          )
-        })}
-      </ScrollView>
-
-      {query.trim() === '' ? (
-        <EmptyState
-          icon="search"
-          title="Search Kosh"
-          message="Search your tasks, notes, ideas, and everything you've captured."
+      <View style={styles.chipRow}>
+        <Chip label="All" active={hook.filter === 'all'} onPress={() => hook.setFilter('all')} />
+        {ITEM_TYPES.map((t) => (
+          <Chip
+            key={t}
+            label={typeLabel[t]}
+            active={hook.filter === t}
+            onPress={() => hook.setFilter(t as SearchTypeFilter)}
+          />
+        ))}
+      </View>
+      <View style={styles.chipRow}>
+        <Chip
+          label="Inbox"
+          active={statusFilter === 'inbox'}
+          onPress={() => setStatusFilter('inbox')}
         />
-      ) : error ? (
-        <EmptyState icon="search" title="Search failed" message={error} />
-      ) : loading && results.length === 0 ? (
-        <EmptyState icon="search" title="Searching…" message="" />
-      ) : searched && results.length === 0 ? (
+        <Chip
+          label="Active"
+          active={statusFilter === 'active'}
+          onPress={() => setStatusFilter('active')}
+        />
+        <Chip
+          label="Done"
+          active={statusFilter === 'done'}
+          onPress={() => setStatusFilter('done')}
+        />
+        <Chip
+          label="Archived"
+          active={statusFilter === 'archived'}
+          onPress={() => setStatusFilter('archived')}
+        />
+        <Chip
+          label="With attachments"
+          active={hasAttachmentFilter}
+          onPress={() => setHasAttachmentFilter((v) => !v)}
+        />
+      </View>
+
+      {recent.length > 0 && !input ? (
+        <View style={styles.recentRow}>
+          <Text style={styles.recentLabel}>Recent</Text>
+          {recent.map((r) => (
+            <Chip key={r} label={r} active={false} onPress={() => commitSearch(r)} />
+          ))}
+          <Pressable
+            onPress={() => {
+              clearRecentSearches()
+              setRecent([])
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Clear recent searches"
+          >
+            <Text style={styles.recentClear}>Clear</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {hook.loading ? (
+        <Text style={styles.stateText}>Searching…</Text>
+      ) : hook.error ? (
+        <Text style={[styles.stateText, styles.errorText]}>{hook.error}</Text>
+      ) : !hook.searched ? null : hook.results.length === 0 ? (
         <EmptyState
           icon="search"
-          title="No results"
-          message={`Nothing matches "${query.trim()}".`}
+          title={`No results for "${input.trim()}"`}
+          message="Try fewer words, different spelling, or removing filters."
         />
       ) : (
-        results.map((result) => (
-          <ItemCard
-            key={result.id}
-            item={result}
-            onPress={() => openItem(result.id)}
-            onToggleDone={result.type === 'task' ? () => handleToggleDone(result.id) : undefined}
-          />
-        ))
+        <FlatList
+          data={hook.results}
+          keyExtractor={(i) => i.id}
+          renderItem={({ item }) => (
+            <ItemCard
+              item={item}
+              onPress={() => handleOpen(item.id)}
+              onToggleDone={item.type === 'task' ? () => handleToggleDone(item.id) : undefined}
+            />
+          )}
+          ListFooterComponent={
+            hook.hasMore ? (
+              <Pressable
+                onPress={hook.loadMore}
+                disabled={hook.loadingMore}
+                accessibilityRole="button"
+                accessibilityLabel="Load more results"
+                style={styles.loadMore}
+              >
+                <Text style={styles.loadMoreText}>
+                  {hook.loadingMore ? 'Loading…' : 'Load more'}
+                </Text>
+              </Pressable>
+            ) : null
+          }
+        />
       )}
     </Content>
+  )
+}
+
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      style={[styles.chip, active && styles.chipActive]}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </Pressable>
   )
 }
 
@@ -124,7 +224,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -132,41 +232,83 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  searchInput: {
+  input: {
     flex: 1,
     color: colors.text,
     fontSize: 15,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
-  clear: {
+  clearButton: {
     padding: 4,
   },
-  filters: {
-    flexGrow: 0,
-    marginBottom: spacing.lg,
+  clearText: {
+    color: colors.textMuted,
+    fontSize: 15,
   },
-  filtersInner: {
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  filter: {
-    backgroundColor: colors.surface,
+  chip: {
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radius.md,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
   },
-  filterActive: {
-    backgroundColor: colors.accentMuted,
+  chipActive: {
     borderColor: colors.accent,
+    backgroundColor: colors.accentMuted,
   },
-  filterText: {
+  chipText: {
     color: colors.textMuted,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  filterTextActive: {
+  chipTextActive: {
     color: colors.accent,
+  },
+  recentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  recentLabel: {
+    color: colors.textFaint,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  recentClear: {
+    color: colors.textFaint,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  stateText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+  },
+  errorText: {
+    color: colors.warning,
+  },
+  loadMore: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  loadMoreText: {
+    color: colors.accent,
+    fontSize: 14,
     fontWeight: '600',
   },
 })

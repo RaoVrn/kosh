@@ -1,6 +1,10 @@
 import type {
+  Attachment,
   CaptureInterpretRequest,
   CaptureResult,
+  InboxProcessingAcceptInput,
+  InboxProcessingAcceptResponse,
+  InboxProcessingResult,
   Item,
   ItemStatus,
   ItemType,
@@ -10,9 +14,18 @@ import type {
   ProjectInput,
   ProjectUpdate,
   Recurrence,
+  SearchMeta,
+  SearchResponse,
 } from '../index'
 
 export interface TranscribeFileInput {
+  uri?: string
+  blob?: Blob
+  name: string
+  mime: string
+}
+
+export interface AttachmentFileInput {
   uri?: string
   blob?: Blob
   name: string
@@ -50,6 +63,7 @@ export interface ItemsApiClient {
   createItem: (input: CreateItemInput) => Promise<Item>
   updateItem: (id: string, patch: UpdateItemInput) => Promise<Item>
   deleteItem: (id: string) => Promise<void>
+  searchItems: (params: { q: string; limit?: number; offset?: number }) => Promise<SearchResponse>
   getNotifications: (params?: { unread?: boolean }) => Promise<KoshNotification[]>
   markNotificationRead: (id: string) => Promise<KoshNotification>
   interpretCapture: (input: CaptureInterpretRequest) => Promise<CaptureResult>
@@ -59,6 +73,15 @@ export interface ItemsApiClient {
   createProject: (input: ProjectInput) => Promise<Project>
   updateProject: (id: string, patch: ProjectUpdate) => Promise<Project>
   deleteProject: (id: string) => Promise<void>
+  listAttachments: (itemId: string) => Promise<Attachment[]>
+  uploadAttachment: (itemId: string, file: AttachmentFileInput) => Promise<Attachment>
+  deleteAttachment: (attachmentId: string) => Promise<void>
+  getAttachmentUrl: (attachmentId: string) => string
+  processInboxItem: (itemId: string) => Promise<InboxProcessingResult>
+  acceptProcessedSuggestions: (
+    itemId: string,
+    input: InboxProcessingAcceptInput,
+  ) => Promise<InboxProcessingAcceptResponse>
 }
 
 export const DEFAULT_API_BASE_URL = 'http://localhost:3001'
@@ -88,6 +111,33 @@ export function createItemsApi(baseUrl: string = DEFAULT_API_BASE_URL): ItemsApi
       await request<undefined>(baseUrl, `/api/v1/items/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       })
+    },
+    searchItems: async (params) => {
+      const query = new URLSearchParams()
+      query.set('q', params.q)
+      if (params.limit !== undefined) query.set('limit', String(params.limit))
+      if (params.offset !== undefined) query.set('offset', String(params.offset))
+      let res: Response
+      try {
+        res = await fetch(`${baseUrl}/api/v1/items?${query.toString()}`)
+      } catch {
+        throw new Error('Could not reach the Kosh API — is it running?')
+      }
+      if (!res.ok) {
+        let message: string | undefined
+        try {
+          const body = (await res.json()) as { error?: { message?: unknown } }
+          if (typeof body.error?.message === 'string') message = body.error.message
+        } catch {
+          // fall through to status message
+        }
+        throw new Error(message ?? `Request failed (${res.status})`)
+      }
+      const body = (await res.json()) as { data?: Item[]; meta?: SearchMeta }
+      if (!Array.isArray(body.data) || !body.meta) {
+        throw new Error(`Unexpected response from the API (${res.status})`)
+      }
+      return { items: body.data, meta: body.meta }
     },
     getNotifications: (params) => {
       const qs = params?.unread ? '?unread=true' : ''
@@ -149,6 +199,42 @@ export function createItemsApi(baseUrl: string = DEFAULT_API_BASE_URL): ItemsApi
         method: 'DELETE',
       })
     },
+    listAttachments: (itemId) =>
+      request<Attachment[]>(baseUrl, `/api/v1/items/${encodeURIComponent(itemId)}/attachments`),
+    uploadAttachment: async (itemId, file) => {
+      const form = new FormData()
+      if (file.blob) {
+        form.append('file', file.blob, file.name)
+      } else if (file.uri) {
+        form.append('file', { uri: file.uri, name: file.name, type: file.mime } as unknown as Blob)
+      } else {
+        throw new Error('No file provided')
+      }
+      return request<Attachment>(
+        baseUrl,
+        `/api/v1/items/${encodeURIComponent(itemId)}/attachments`,
+        { method: 'POST', body: form },
+      )
+    },
+    deleteAttachment: async (attachmentId) => {
+      await request<undefined>(baseUrl, `/api/v1/attachments/${encodeURIComponent(attachmentId)}`, {
+        method: 'DELETE',
+      })
+    },
+    getAttachmentUrl: (attachmentId) =>
+      `${baseUrl}/api/v1/attachments/${encodeURIComponent(attachmentId)}`,
+    processInboxItem: (itemId) =>
+      request<InboxProcessingResult>(
+        baseUrl,
+        `/api/v1/items/${encodeURIComponent(itemId)}/process`,
+        { method: 'POST' },
+      ),
+    acceptProcessedSuggestions: (itemId, input) =>
+      request<InboxProcessingAcceptResponse>(
+        baseUrl,
+        `/api/v1/items/${encodeURIComponent(itemId)}/process/accept`,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
   }
 }
 
@@ -160,9 +246,12 @@ export function errorMessage(err: unknown, fallback = 'Something went wrong'): s
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
+    const isFormData = init?.body instanceof FormData
     res = await fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
+      headers: isFormData
+        ? { ...init.headers }
+        : { 'Content-Type': 'application/json', ...init?.headers },
     })
   } catch {
     throw new Error('Could not reach the Kosh API — is it running?')

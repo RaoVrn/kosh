@@ -222,6 +222,78 @@ updated_at, archived_at`; names are case-insensitively unique
   and returns `projectId` (null when unknown/archived/ambiguous). Never
   creates projects.
 
+## Attachments
+
+- **Model:** `attachments` table (migration `008`): `id, item_id (FK
+ON DELETE CASCADE), original_name, stored_name, mime_type, size_bytes,
+created_at, updated_at` + index on `item_id`. SQLite stores metadata only;
+  the binary bytes live under `KOSH_ATTACHMENT_DIR` (default
+  `apps/api/data/attachments`, git-ignored) as `<attachment-id>.<ext>` —
+  never the original filename. `storedName` never leaves the server.
+- **Allowed types:** image/jpeg, image/png, image/webp, image/gif,
+  application/pdf, text/plain, text/markdown, text/csv. Max size
+  `KOSH_MAX_ATTACHMENT_SIZE_BYTES` (default 25 MB). The server derives the
+  extension from the MIME type (client MIME is untrusted; the filename is
+  metadata only).
+- **API:** `POST /api/v1/items/:itemId/attachments` (multipart field `file`),
+  `GET /api/v1/items/:itemId/attachments` (metadata), `GET
+/api/v1/attachments/:id` (serve; inline for images/pdf/text, attachment
+  disposition otherwise), `DELETE /api/v1/attachments/:id` (row + file).
+- **Item integration:** item list/search responses carry `attachmentCount`
+  (single aggregate subquery — no N+1); item detail carries the full
+  `attachments` array. Deleting an item deletes its attachment rows (cascade)
+  and physical files (application-level cleanup). Edits, type conversions,
+  project changes, and task completion never touch attachments; recurrence
+  intentionally does NOT copy attachments to the next occurrence.
+- **Search:** metadata-only — no OCR or document-content indexing yet; search
+  matches item content as before.
+
+## Search (global search 2.0)
+
+- **Index:** FTS5 `items_fts` (migration `009`, standalone virtual table)
+  over `title, body, url, tags, project_name` with `unicode61`. Item
+  insert/update/delete triggers keep it in sync; a `projects` rename trigger
+  updates `project_name` for all items of the project. Project assignment/
+  removal re-indexes via the item update trigger; deletion detaches (item
+  UPDATE) which re-indexes.
+- **Query syntax** (parsed server-side by `src/search/queryParser.ts`):
+  `type:task|note|idea|learning|link`, `status:inbox|active|done|archived`,
+  `project:"Name"` (or unquoted single word), `tag:x` (repeatable, AND),
+  `before:YYYY-MM-DD` / `after:YYYY-MM-DD` (UTC day boundaries on
+  `created_at`), `has:attachment`, plus plain text and quoted phrases.
+  Invalid types/statuses/dates → 400; contradictory explicit query params
+  (`?type=`) vs operators → 400.
+- **Ranking & snippets:** `bm25(items_fts, -2.0, 0.0, 0.0, -1.0, 0.0)` boosts
+  title and tags above body/url/project; results include FTS5 `snippet()` with
+  `<mark>` markers rendered as highlights by the clients.
+- **Pagination:** `GET /api/v1/items?q=…&limit=&offset=` returns
+  `{data, meta: {limit, offset, total, hasMore}}`. Search runs fully in
+  SQLite (no JS filtering, no N+1); `attachmentCount` and `projectId` ride
+  along via aggregate subquery.
+- **No** OCR, document-content indexing, or semantic/vector search — search
+  matches item text and project names only.
+
+## Inbox processing (smart workspace)
+
+- **Ephemeral suggestions:** `POST /api/v1/items/:id/process` (user-triggered,
+  no auth-free background processing) runs the inbox item's title/body through
+  the existing AI provider with the dedicated `processingPromptV1`, validates
+  the output (`src/ai/process/validate.ts`) and returns at most 5 suggestions.
+  The source item is NEVER modified and nothing is created. Project names are
+  resolved server-side against existing ACTIVE projects (never created);
+  dates/reminders/recurrence reuse the existing capture logic.
+- **Confirmation-first accept:** `POST /api/v1/items/:id/process/accept`
+  re-validates every suggestion through the SAME validation as item creation
+  (title/type/priority/dates/recurrence/project rules), resolves projects,
+  skips duplicates listed in `skipDuplicateTitles` (normalized title equality),
+  creates the batch inside one transaction, and only then archives the source
+  when `markSourceProcessed` is true AND at least one item was created.
+  Any validation failure rolls back the entire batch.
+- **Guarantees:** AI failures/timeouts/malformed output leave the source and
+  its attachments untouched (502 "…Your original item is safe."). Accepted
+  items are normal Items — Today, projects, search, reminders and recurrence
+  pick them up with zero special-casing. Attachments stay on the source.
+
 ## API structure
 
 ```

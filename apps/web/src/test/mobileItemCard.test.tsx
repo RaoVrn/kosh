@@ -22,6 +22,10 @@ function rerenderCard(ui: ReactElement, result: ReturnType<typeof render>) {
 function fakeProjectsApi(): ItemsApiClient {
   return {
     getItems: async () => [],
+    searchItems: async () => ({
+      items: [],
+      meta: { limit: 25, offset: 0, total: 0, hasMore: false },
+    }),
     getItem: async () => {
       throw new Error('unused')
     },
@@ -55,6 +59,20 @@ function fakeProjectsApi(): ItemsApiClient {
     deleteProject: async () => {
       throw new Error('unused')
     },
+    listAttachments: async () => [],
+    uploadAttachment: async () => {
+      throw new Error('unused')
+    },
+    deleteAttachment: async () => {
+      throw new Error('unused')
+    },
+    getAttachmentUrl: () => 'http://localhost:3001/api/v1/attachments/x',
+    processInboxItem: async () => ({ summary: null, suggestions: [] }),
+    acceptProcessedSuggestions: async () => ({
+      created: [],
+      source: {} as never,
+      skippedDuplicates: [],
+    }),
   }
 }
 
@@ -87,6 +105,72 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     ...overrides,
   }
 }
+
+describe('mobile ItemCard interactive structure (Expo Web safety)', () => {
+  it('renders no interactive control nested inside another interactive control', () => {
+    renderCard(
+      <ItemCard
+        item={makeItem({ type: 'idea', status: 'inbox' })}
+        onPress={() => {}}
+        onProcess={() => {}}
+        onArchive={() => {}}
+        onConvertToTask={() => {}}
+      />,
+    )
+
+    // react-native-web renders Pressable with role="button"/"checkbox".
+    // There must be NO interactive element inside another interactive element.
+    const nestedButtons = document.querySelectorAll('[role="button"] [role="button"]')
+    const nestedCheck = document.querySelectorAll('[role="button"] [role="checkbox"]')
+    const nestedInCheck = document.querySelectorAll('[role="checkbox"] [role="button"]')
+    expect(nestedButtons).toHaveLength(0)
+    expect(nestedCheck).toHaveLength(0)
+    expect(nestedInCheck).toHaveLength(0)
+  })
+
+  it('open control and action buttons are siblings (actions outside the open Pressable)', () => {
+    renderCard(
+      <ItemCard
+        item={makeItem({ type: 'note', status: 'inbox' })}
+        onPress={() => {}}
+        onProcess={() => {}}
+        onArchive={() => {}}
+      />,
+    )
+
+    const open = screen.getByRole('button', { name: 'Note: Render me' })
+    const process = screen.getByRole('button', { name: 'Process' })
+    const archive = screen.getByRole('button', { name: 'Archive' })
+
+    // The open control must not be an ancestor of the action buttons.
+    expect(open.contains(process)).toBe(false)
+    expect(open.contains(archive)).toBe(false)
+  })
+
+  it('pressing an action does not trigger the open callback (siblings, no propagation)', () => {
+    const onPress = vi.fn()
+    const onProcess = vi.fn()
+    const onArchive = vi.fn()
+    renderCard(
+      <ItemCard
+        item={makeItem({ type: 'task', status: 'inbox' })}
+        onPress={onPress}
+        onProcess={onProcess}
+        onArchive={onArchive}
+        onToggleDone={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Process' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    expect(onProcess).toHaveBeenCalledTimes(1)
+    expect(onArchive).toHaveBeenCalledTimes(1)
+    expect(onPress).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Task: Render me' }))
+    expect(onPress).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('mobile ItemCard renders every type and status without crashing', () => {
   for (const type of TYPES) {

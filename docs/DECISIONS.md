@@ -560,3 +560,72 @@ item)`. The MVP implementation persists a row in the `notifications` table
   or remove the suggestion before persisting.
 - **Why:** Deterministic matching prevents the AI from attaching data to the
   wrong project, and creation stays an explicit user action.
+
+### P14 — Attachments: SQLite metadata + local files, uploaded after confirmation
+
+- **Status:** Accepted (Phase 12)
+- **Decision:** `attachments` rows in SQLite; bytes on local disk under
+  `KOSH_ATTACHMENT_DIR` as `<attachment-id>.<ext>` (never the original
+  filename, MIME allow-list, server-side size cap). Clients only see metadata
+  and served URLs. Deleting an attachment/item removes both the row and the
+  file (best-effort on the physical side). Recurring next occurrences
+  intentionally start WITHOUT attachments — attachments stay with the
+  completed occurrence.
+- **Why:** Durable, simple, local-first storage with no cloud and no binary
+  payloads in JSON or FTS.
+
+### P15 — Pending-attachment capture flow
+
+- **Status:** Accepted (Phase 12)
+- **Decision:** In Smart Capture (and voice), picked files stay local until
+  the user confirms; only then is the item created and the pending files
+  uploaded to it. If an upload fails the item still exists and the pending
+  files remain for retry.
+- **Why:** Never upload before user intent, never lose the original capture
+  because of an attachment failure — the item is the durable anchor.
+
+### P16 — Search 2.0: operators on FTS5 + created_at, no semantics
+
+- **Status:** Accepted (Phase 13)
+- **Decision:** Search stays deterministic and local. FTS5 `items_fts` gains
+  a `project_name` column kept in sync by item triggers + a project-rename
+  trigger (project data stays authoritative in `projects`). Operators
+  (`type:`/`status:`/`project:`/`tag:`/`before:`/`after:`/`has:attachment`)
+  are parsed server-side; `before`/`after` are UTC day boundaries on
+  `created_at` (documented). Contradictory `?param` vs operator → 400.
+- **Why:** Predictable retrieval without vector/embedding infrastructure;
+  project-name indexing gives context search without duplicating records.
+
+### P17 — Search date semantics are UTC day boundaries on created_at
+
+- **Status:** Accepted (Phase 13)
+- **Decision:** `before:2026-09-01` means `created_at < 2026-09-01T00:00:00.000Z`
+  and `after:` the mirror — UTC, deterministic, documented in the API.
+- **Why:** Avoids ambiguous local/UTC comparisons for persisted ISO UTC
+  timestamps; consistent with the API being the source of timestamps.
+
+### P18 — Inbox processing: ephemeral suggestions, confirmation-first
+
+- **Status:** Accepted (Phase 14)
+- **Decision:** `POST /items/:id/process` runs the AI over an inbox/active
+  item and returns at most 5 ephemeral suggestions; the source is never
+  modified and nothing is persisted. `POST /items/:id/process/accept`
+  re-validates the (possibly edited) suggestions through the standard item
+  validation, resolves project names to active projects (never creates), and
+  creates the batch atomically; the source is archived only when the user
+  asked and ≥1 item was created. Duplicate skip is deterministic (normalized
+  title equality + `skipDuplicateTitles`).
+- **Why:** The AI is a suggestion engine, not an actor — the user reviews and
+  confirms everything, matching the Smart Capture contract. Batch-atomic
+  accept avoids partial work; source archival is explicit and recoverable
+  (archived, never deleted).
+
+### P19 — Attachments stay on the processed source
+
+- **Status:** Accepted (Phase 14)
+- **Decision:** Inbox processing never copies attachments onto suggestions.
+  The review UI shows the source's attachment count with the note that they
+  are kept on the capture; attachments travel with the source item only.
+- **Why:** Silent duplication of large files is dangerous; keeping
+  attachments on the source is predictable and reversible (the user can
+  attach files to created items afterwards).
